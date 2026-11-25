@@ -42,7 +42,7 @@ jobs:
         if: steps.source.outputs.present == 'true'
         run: |
           echo "===== HoYoLAB source files ====="
-          find work/hoyolab -maxdepth 3 -type f -printf '%P\\n' | sort
+          find work/hoyolab -maxdepth 3 -type f -printf '%P\n' | sort
           echo "===== Python entry functions ====="
           grep -R -n -E '^def (handler|main|run)\\(' work/hoyolab --include='*.py' || true
           echo "===== Entry module tails ====="
@@ -68,7 +68,7 @@ jobs:
         if: steps.source.outputs.present == 'true'
         run: |
           echo "===== Skland source files ====="
-          find work/skland -maxdepth 4 -type f -printf '%P\\n' | sort
+          find work/skland -maxdepth 4 -type f -printf '%P\n' | sort
           echo "===== Token file references ====="
           grep -R -n -i -E 'token[.]txt|INPUT_HYPERGRYPH_TOKEN|token' work/skland/src --include='*.py' || true
           echo "===== Skland entry source ====="
@@ -92,15 +92,15 @@ jobs:
           from pathlib import Path
           p = Path("dist/skland/index.py")
           s = p.read_text(encoding="utf-8")
-          s = s.replace("import logging\\nimport threading\\n", "import logging\\nimport os\\n")
+          s = s.replace("import logging\nimport threading\n", "import logging\nimport os\n")
           s = s.replace("file_save_token = './code/INPUT_HYPERGRYPH_TOKEN.txt'",
                         'file_save_token = os.path.join(os.path.dirname(os.path.abspath(__file__)), "code", "INPUT_HYPERGRYPH_TOKEN.txt")')
-          s = s.replace("    if not os.path.exists(token_save_name):\\n        return []",
-                        '    if not os.path.exists(path):\\n        raise FileNotFoundError("找不到森空岛 Token 文件：" + path)')
-          s = s.replace("    if token:\\n        for i in range(1, len(token)):\\n            threading.Thread(target=start, args=(token[i],)).start()\\n        start(token[0])",
-                        '    if not token:\\n        raise RuntimeError("森空岛 Token 文件为空")\\n    for item in token:\\n        start(item)')
+          s = s.replace("    if not os.path.exists(token_save_name):\n        return []",
+                        '    if not os.path.exists(path):\n        raise FileNotFoundError("找不到森空岛 Token 文件：" + path)')
+          s = s.replace("    if token:\n        for i in range(1, len(token)):\n            threading.Thread(target=start, args=(token[i],)).start()\n        start(token[0])",
+                        '    if not token:\n        raise RuntimeError("森空岛 Token 文件为空")\n    for item in token:\n        start(item)')
           s = s.replace("        logging.error('签到完全失败了！：', exc_info=ex)",
-                        '        logging.exception("森空岛签到执行失败")\\n        raise RuntimeError("森空岛签到执行失败：" + str(ex)) from ex')
+                        '        logging.exception("森空岛签到执行失败")\n        raise RuntimeError("森空岛签到执行失败：" + str(ex)) from ex')
           p.write_text(s, encoding="utf-8")
           PY
           mv dist/skland/index.py dist/skland/skland_entry.py
