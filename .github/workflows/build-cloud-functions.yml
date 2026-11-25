@@ -86,6 +86,23 @@ jobs:
           mkdir -p dist/skland/code
           python -m pip install --no-compile -r work/skland/requirements.txt -t dist/skland
           cp -a work/skland/src/. dist/skland/
+          # Make the token path independent of FunctionGraph's current working directory,
+          # and propagate runtime errors so the APK can reliably gate timer creation.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("dist/skland/index.py")
+          s = p.read_text(encoding="utf-8")
+          s = s.replace("import logging\\nimport threading\\n", "import logging\\nimport os\\n")
+          s = s.replace("file_save_token = './code/INPUT_HYPERGRYPH_TOKEN.txt'",
+                        'file_save_token = os.path.join(os.path.dirname(os.path.abspath(__file__)), "code", "INPUT_HYPERGRYPH_TOKEN.txt")')
+          s = s.replace("    if not os.path.exists(token_save_name):\\n        return []",
+                        '    if not os.path.exists(path):\\n        raise FileNotFoundError("找不到森空岛 Token 文件：" + path)')
+          s = s.replace("    if token:\\n        for i in range(1, len(token)):\\n            threading.Thread(target=start, args=(token[i],)).start()\\n        start(token[0])",
+                        '    if not token:\\n        raise RuntimeError("森空岛 Token 文件为空")\\n    for item in token:\\n        start(item)')
+          s = s.replace("        logging.error('签到完全失败了！：', exc_info=ex)",
+                        '        logging.exception("森空岛签到执行失败")\\n        raise RuntimeError("森空岛签到执行失败：" + str(ex)) from ex')
+          p.write_text(s, encoding="utf-8")
+          PY
           mv dist/skland/index.py dist/skland/skland_entry.py
           python - <<'PY'
           from pathlib import Path
@@ -113,10 +130,16 @@ jobs:
           TXT
           # Test imports and the empty-token execution path without bundling Python.
           (cd dist/skland && python - <<'PY'
+          import os
           import index
-          result = index.handler({}, None)
-          assert result["statusCode"] == 200
-          print(result)
+          assert os.path.isfile(index.file_save_token), index.file_save_token
+          try:
+              index.handler({}, None)
+          except RuntimeError as exc:
+              assert "Token 文件为空" in str(exc), str(exc)
+              print("Token path verified; empty-token execution correctly fails closed.")
+          else:
+              raise AssertionError("Empty token unexpectedly reported success")
           PY
           )
           find dist/skland -type d -name __pycache__ -prune -exec rm -rf {} +
