@@ -70,7 +70,11 @@ jobs:
           echo "===== Skland source files ====="
           find work/skland -maxdepth 4 -type f -printf '%P\\n' | sort
           echo "===== Token file references ====="
-          grep -R -n -i -E 'token\\.txt|INPUT_HYPERGRYPH_TOKEN|open\\(|read_text|read\\(' work/skland --include='*.py' || true
+          grep -R -n -i -E 'token[.]txt|INPUT_HYPERGRYPH_TOKEN|token' work/skland/src --include='*.py' || true
+          echo "===== Skland entry source ====="
+          sed -n '1,120p' work/skland/src/index.py
+          echo "===== Token loading implementation ====="
+          grep -n -B 8 -A 15 -i -E 'token|open|read_text' work/skland/src/skyland.py || true
           echo "===== Handler and exception handling ====="
           grep -R -n -E '^def handler|except Exception|raise |return ' work/skland/src --include='*.py' || true
 
