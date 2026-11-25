@@ -48,7 +48,6 @@ jobs:
           cp work/hoyolab/*.py dist/hoyolab/package/
           cp work/hoyolab/config/*.example dist/hoyolab/package/config/
           cp work/hoyolab/config/config.yaml.example dist/hoyolab/package/config/config.yaml
-          cp work/hoyolab/config/README.md dist/hoyolab/package/config/
           cd dist/hoyolab/package
           zip -qr ../../../hoyolab.zip .
 
