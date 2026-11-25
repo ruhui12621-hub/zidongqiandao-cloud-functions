@@ -38,6 +38,19 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Inspect HoYoLAB deployment entry
+        if: steps.source.outputs.present == 'true'
+        run: |
+          echo "===== HoYoLAB source files ====="
+          find work/hoyolab -maxdepth 3 -type f -printf '%P\\n' | sort
+          echo "===== Python entry functions ====="
+          grep -R -n -E '^def (handler|main|run)\\(' work/hoyolab --include='*.py' || true
+          echo "===== Entry module tails ====="
+          for f in work/hoyolab/*.py; do
+            echo "--- $f"
+            tail -35 "$f"
+          done
+
       - name: Build HoYoLAB package
         if: steps.source.outputs.present == 'true'
         run: |
