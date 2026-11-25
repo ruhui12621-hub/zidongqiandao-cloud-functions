@@ -51,16 +51,41 @@ jobs:
           cd dist/hoyolab/package
           zip -qr ../../../hoyolab.zip .
 
-      - name: Build Skland Huawei FunctionGraph package (Linux PyInstaller)
+      - name: Build Skland Huawei FunctionGraph package (optimized PyInstaller)
         if: steps.source.outputs.present == 'true'
         run: |
           set -euxo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r work/skland/requirements.txt pyinstaller
-          cd work/skland/.build
-          bash build_cloud_function.sh
-          cd ../dist/cloud_functions
-          zip -qr "$GITHUB_WORKSPACE/skland.zip" .
+          cd work/skland
+          mkdir -p dist/cloud_functions
+          pyinstaller --noconfirm --clean --onedir --strip --name index \
+            --distpath "$PWD/dist/cloud_functions" \
+            --exclude-module tkinter \
+            --exclude-module unittest \
+            --exclude-module doctest \
+            --exclude-module pydoc \
+            --exclude-module pydoc_data \
+            --exclude-module lib2to3 \
+            --exclude-module idlelib \
+            --exclude-module turtle \
+            --exclude-module test \
+            --exclude-module ensurepip \
+            --exclude-module venv \
+            src/index.py
+          touch dist/cloud_functions/INPUT_HYPERGRYPH_TOKEN.txt
+          install -m 755 .build/bootstrap dist/cloud_functions/bootstrap
+          # Smoke test: run the exact packaged executable with an empty token file.
+          mkdir -p dist/cloud_functions/code
+          touch dist/cloud_functions/code/INPUT_HYPERGRYPH_TOKEN.txt
+          (cd dist/cloud_functions && ./index/index)
+          rm -rf dist/cloud_functions/code
+          echo "Uncompressed Skland package size:"
+          du -sh dist/cloud_functions
+          cd dist/cloud_functions
+          zip -9 -qr "$GITHUB_WORKSPACE/skland.zip" .
+          echo "Compressed Skland ZIP size:"
+          ls -lh "$GITHUB_WORKSPACE/skland.zip"
 
       - name: Verify packages
         if: steps.source.outputs.present == 'true'
