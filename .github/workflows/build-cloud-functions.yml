@@ -64,10 +64,10 @@ jobs:
           from pathlib import Path
           p = Path("dist/skland/skland_entry.py")
           s = p.read_text(encoding="utf-8")
-          ending = "\\nhandler()\\n"
+          ending = "\nhandler()\n"
           if not s.endswith(ending):
               raise SystemExit("Unexpected Skland entry source ending; refusing to change startup behavior")
-          p.write_text(s[:-len(ending)] + "\\n", encoding="utf-8")
+          p.write_text(s[:-len(ending)] + "\n", encoding="utf-8")
           PY
           cat > dist/skland/index.py <<'PY'
           """Huawei FunctionGraph Python 3.10 handler."""
