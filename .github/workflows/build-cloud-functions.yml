@@ -10,23 +10,36 @@ permissions:
 
 jobs:
   build:
-    if: ${{ hashFiles('source-bundle.zip') != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check source bundle
+        id: source
+        shell: bash
+        run: |
+          if [ -s source-bundle.zip ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::source-bundle.zip is not uploaded yet; build will be skipped."
+          fi
+
       - name: Prepare source
+        if: steps.source.outputs.present == 'true'
         run: |
           mkdir -p work
           unzip -q source-bundle.zip -d work
 
       - name: Set up Python
+        if: steps.source.outputs.present == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Build HoYoLAB package
+        if: steps.source.outputs.present == 'true'
         run: |
           set -euxo pipefail
           mkdir -p dist/hoyolab/package/config
@@ -40,6 +53,7 @@ jobs:
           zip -qr ../../../hoyolab.zip .
 
       - name: Build Skland Huawei FunctionGraph package (Linux PyInstaller)
+        if: steps.source.outputs.present == 'true'
         run: |
           set -euxo pipefail
           python -m pip install --upgrade pip
@@ -50,6 +64,7 @@ jobs:
           zip -qr "$GITHUB_WORKSPACE/skland.zip" .
 
       - name: Verify packages
+        if: steps.source.outputs.present == 'true'
         run: |
           unzip -l hoyolab.zip | head -40
           unzip -l skland.zip | head -40
@@ -57,6 +72,7 @@ jobs:
           test -s skland.zip
 
       - name: Upload build artifacts
+        if: steps.source.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: cloud-function-packages
@@ -67,7 +83,7 @@ jobs:
           retention-days: 30
 
       - name: Publish versioned release assets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.source.outputs.present == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: cloud-functions-${{ github.run_number }}-${{ github.sha }}
