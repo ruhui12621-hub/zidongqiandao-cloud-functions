@@ -64,6 +64,16 @@ jobs:
           cd dist/hoyolab/package
           zip -qr ../../../hoyolab.zip .
 
+      - name: Inspect Skland token path and execution result handling
+        if: steps.source.outputs.present == 'true'
+        run: |
+          echo "===== Skland source files ====="
+          find work/skland -maxdepth 4 -type f -printf '%P\\n' | sort
+          echo "===== Token file references ====="
+          grep -R -n -i -E 'token\\.txt|INPUT_HYPERGRYPH_TOKEN|open\\(|read_text|read\\(' work/skland --include='*.py' || true
+          echo "===== Handler and exception handling ====="
+          grep -R -n -E '^def handler|except Exception|raise |return ' work/skland/src --include='*.py' || true
+
       - name: Build Skland Huawei FunctionGraph Python 3.10 package
         if: steps.source.outputs.present == 'true'
         run: |
