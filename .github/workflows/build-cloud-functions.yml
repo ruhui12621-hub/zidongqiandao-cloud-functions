@@ -134,7 +134,7 @@ jobs:
           import skland_entry as index
           assert os.path.isfile(index.file_save_token), index.file_save_token
           with open(index.file_save_token, "w", encoding="utf-8") as token_file:
-              token_file.write("unit-test-token\\n")
+              token_file.write("unit-test-token\n")
           assert index.read(index.file_save_token) == ["unit-test-token"]
           with open(index.file_save_token, "w", encoding="utf-8") as token_file:
               token_file.write("")
