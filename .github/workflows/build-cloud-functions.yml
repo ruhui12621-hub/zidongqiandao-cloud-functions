@@ -51,53 +51,55 @@ jobs:
           cd dist/hoyolab/package
           zip -qr ../../../hoyolab.zip .
 
-      - name: Inspect Skland Python entry for native runtime migration
-        if: steps.source.outputs.present == 'true'
-        run: |
-          echo "===== requirements.txt ====="
-          cat work/skland/requirements.txt
-          echo "===== src/index.py ====="
-          sed -n '1,280p' work/skland/src/index.py
-          echo "===== bootstrap ====="
-          sed -n '1,200p' work/skland/.build/bootstrap
-
-      - name: Build Skland Huawei FunctionGraph package (optimized PyInstaller)
+      - name: Build Skland Huawei FunctionGraph Python 3.10 package
         if: steps.source.outputs.present == 'true'
         run: |
           set -euxo pipefail
-          sudo apt-get update
-          sudo apt-get install -y upx-ucl
-          upx --version
           python -m pip install --upgrade pip
-          python -m pip install -r work/skland/requirements.txt pyinstaller
-          cd work/skland
-          mkdir -p dist/cloud_functions
-          pyinstaller --noconfirm --clean --onedir --strip --name index \
-            --distpath "$PWD/dist/cloud_functions" \
-            --exclude-module tkinter \
-            --exclude-module unittest \
-            --exclude-module doctest \
-            --exclude-module pydoc \
-            --exclude-module pydoc_data \
-            --exclude-module lib2to3 \
-            --exclude-module idlelib \
-            --exclude-module turtle \
-            --exclude-module test \
-            --exclude-module ensurepip \
-            --exclude-module venv \
-            src/index.py
-          touch dist/cloud_functions/INPUT_HYPERGRYPH_TOKEN.txt
-          install -m 755 .build/bootstrap dist/cloud_functions/bootstrap
-          # Smoke test: run the exact packaged executable with an empty token file.
-          mkdir -p dist/cloud_functions/code
-          touch dist/cloud_functions/code/INPUT_HYPERGRYPH_TOKEN.txt
-          (cd dist/cloud_functions && ./index/index)
-          rm -rf dist/cloud_functions/code
-          echo "Uncompressed Skland package size:"
-          du -sh dist/cloud_functions
-          cd dist/cloud_functions
+          mkdir -p dist/skland/code
+          python -m pip install --no-compile -r work/skland/requirements.txt -t dist/skland
+          cp -a work/skland/src/. dist/skland/
+          mv dist/skland/index.py dist/skland/skland_entry.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("dist/skland/skland_entry.py")
+          s = p.read_text(encoding="utf-8")
+          ending = "\\nhandler()\\n"
+          if not s.endswith(ending):
+              raise SystemExit("Unexpected Skland entry source ending; refusing to change startup behavior")
+          p.write_text(s[:-len(ending)] + "\\n", encoding="utf-8")
+          PY
+          cat > dist/skland/index.py <<'PY'
+          """Huawei FunctionGraph Python 3.10 handler."""
+          from skland_entry import handler as run_skland
+
+          def handler(event, context):
+              run_skland()
+              return {"statusCode": 200, "body": "Skland task finished"}
+          PY
+          touch dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt
+          cat > dist/skland/DEPLOY.txt <<'TXT'
+          Huawei FunctionGraph runtime: Python 3.10
+          Handler: index.handler
+          This package is for the built-in Python runtime, not Custom Runtime.
+          Token file path retained: ./code/INPUT_HYPERGRYPH_TOKEN.txt
+          TXT
+          # Test imports and the empty-token execution path without bundling Python.
+          (cd dist/skland && python - <<'PY'
+          import index
+          result = index.handler({}, None)
+          assert result["statusCode"] == 200
+          print(result)
+          PY
+          )
+          find dist/skland -type d -name __pycache__ -prune -exec rm -rf {} +
+          find dist/skland -type d \( -name tests -o -name test \) -prune -exec rm -rf {} +
+          find dist/skland -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+          echo "Uncompressed Skland Python package size:"
+          du -sh dist/skland
+          cd dist/skland
           zip -9 -qr "$GITHUB_WORKSPACE/skland.zip" .
-          echo "Compressed Skland ZIP size:"
+          echo "Compressed Skland Python ZIP size:"
           ls -lh "$GITHUB_WORKSPACE/skland.zip"
 
       - name: Verify packages
