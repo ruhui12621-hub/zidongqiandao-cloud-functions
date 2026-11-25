@@ -1,0 +1,78 @@
+name: Build cloud function packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare source
+        run: |
+          mkdir -p work
+          unzip -q source-bundle.zip -d work
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Build HoYoLAB package
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/hoyolab/package/config
+          python -m pip install --upgrade pip
+          python -m pip install -r work/hoyolab/requirements.txt -t dist/hoyolab/package
+          cp work/hoyolab/*.py dist/hoyolab/package/
+          cp work/hoyolab/config/*.example dist/hoyolab/package/config/
+          cp work/hoyolab/config/config.yaml.example dist/hoyolab/package/config/config.yaml
+          cp work/hoyolab/config/README.md dist/hoyolab/package/config/
+          cd dist/hoyolab/package
+          zip -qr ../../../hoyolab.zip .
+
+      - name: Build Skland Huawei FunctionGraph package (Linux PyInstaller)
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r work/skland/requirements.txt pyinstaller
+          cd work/skland/.build
+          bash build_cloud_function.sh
+          cd ../dist/cloud_functions
+          zip -qr "$GITHUB_WORKSPACE/skland.zip" .
+
+      - name: Verify packages
+        run: |
+          unzip -l hoyolab.zip | head -40
+          unzip -l skland.zip | head -40
+          test -s hoyolab.zip
+          test -s skland.zip
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-function-packages
+          path: |
+            hoyolab.zip
+            skland.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish versioned release assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cloud-functions-${{ github.run_number }}-${{ github.sha }}
+          name: Cloud functions build ${{ github.run_number }}
+          generate_release_notes: true
+          files: |
+            hoyolab.zip
+            skland.zip
