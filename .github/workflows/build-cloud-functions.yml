@@ -131,10 +131,10 @@ jobs:
           # Test imports and the empty-token execution path without bundling Python.
           (cd dist/skland && python - <<'PY'
           import os
-          import index
+          import skland_entry as index
           assert os.path.isfile(index.file_save_token), index.file_save_token
           try:
-              index.handler({}, None)
+              index.handler()
           except RuntimeError as exc:
               assert "Token 文件为空" in str(exc), str(exc)
               print("Token path verified; empty-token execution correctly fails closed.")
