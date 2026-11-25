@@ -51,6 +51,16 @@ jobs:
           cd dist/hoyolab/package
           zip -qr ../../../hoyolab.zip .
 
+      - name: Inspect Skland Python entry for native runtime migration
+        if: steps.source.outputs.present == 'true'
+        run: |
+          echo "===== requirements.txt ====="
+          cat work/skland/requirements.txt
+          echo "===== src/index.py ====="
+          sed -n '1,280p' work/skland/src/index.py
+          echo "===== bootstrap ====="
+          sed -n '1,200p' work/skland/.build/bootstrap
+
       - name: Build Skland Huawei FunctionGraph package (optimized PyInstaller)
         if: steps.source.outputs.present == 'true'
         run: |
