@@ -55,6 +55,9 @@ jobs:
         if: steps.source.outputs.present == 'true'
         run: |
           set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y upx-ucl
+          upx --version
           python -m pip install --upgrade pip
           python -m pip install -r work/skland/requirements.txt pyinstaller
           cd work/skland
