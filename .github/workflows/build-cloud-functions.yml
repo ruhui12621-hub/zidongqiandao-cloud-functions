@@ -143,12 +143,12 @@ jobs:
               if old_signature not in s:
                   raise SystemExit("Skland do_sign signature not found; refusing to build")
               s = s.replace(old_signature, new_signature, 1)
-          old_block = "    characters = get_binding_list()\\n    success = True"
+          old_block = "    characters = get_binding_list()\n    success = True"
           new_block = (
-              "    characters = get_binding_list()\\n"
-              "    if enabled_games is not None:\\n"
-              "        enabled_games = set(enabled_games)\\n"
-              "        characters = [item for item in characters if item.get('appCode') in enabled_games]\\n"
+              "    characters = get_binding_list()\n"
+              "    if enabled_games is not None:\n"
+              "        enabled_games = set(enabled_games)\n"
+              "        characters = [item for item in characters if item.get('appCode') in enabled_games]\n"
               "    success = True"
           )
           if new_block not in s:
@@ -260,7 +260,7 @@ jobs:
               return {"statusCode": 200, "body": "Skland task finished"}
           PY
           touch dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt
-          printf '{"version":1,"accounts":[]}\\n' > dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json
+          printf '{"version":1,"accounts":[]}\n' > dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json
           cat > dist/skland/DEPLOY.txt <<'TXT'
           Huawei FunctionGraph runtime: Python 3.10
           Handler: index.handler
@@ -286,7 +286,7 @@ jobs:
           with open(index.account_config_path, "w", encoding="utf-8") as config_file:
               config_file.write('{"version":1,"accounts":[]}')
           with open(index.file_save_token, "w", encoding="utf-8") as token_file:
-              token_file.write("legacy-token\\n")
+              token_file.write("legacy-token\n")
           legacy = index.load_accounts()
           assert len(legacy) == 1 and set(legacy[0]["games"]) == index.SUPPORTED_GAMES, legacy
 
