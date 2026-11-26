@@ -283,8 +283,7 @@ jobs:
           accounts = index.load_accounts()
           assert len(accounts) == 1 and accounts[0]["games"] == ["endfield"], accounts
 
-          with open(index.account_config_path, "w", encoding="utf-8") as config_file:
-              config_file.write('{"version":1,"accounts":[]}')
+          os.remove(index.account_config_path)
           with open(index.file_save_token, "w", encoding="utf-8") as token_file:
               token_file.write("legacy-token\n")
           legacy = index.load_accounts()
