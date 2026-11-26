@@ -234,7 +234,10 @@ jobs:
                   cred = skyland.get_cred_by_token(token)
                   success, messages = skyland.do_sign(cred, enabled_games=games)
                   for message in messages or []:
-                      logging.info("[签到结果] %s", message)
+                      game_name = "其他"
+                      if isinstance(message, str) and message.startswith("[") and "]" in message:
+                          game_name = message[1:message.index("]")]
+                      logging.info("[签到结果][%s] %s", game_name, message)
                   if not success:
                       raise RuntimeError("森空岛签到执行返回失败")
               except Exception as ex:
