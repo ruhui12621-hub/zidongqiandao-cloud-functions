@@ -32,6 +32,43 @@ jobs:
           mkdir -p work
           unzip -q source-bundle.zip -d work
 
+      - name: Include per-game check-in results in HoYoLAB LTS logs
+        if: steps.source.outputs.present == 'true'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("work/hoyolab/index.py")
+          source = path.read_text(encoding="utf-8")
+          helper = '''def _emit_checkin_result_logs(message):
+              """Write returned per-game results to stdout so FunctionGraph forwards them to LTS."""
+              game_names = ("崩坏学园2", "崩坏3rd", "未定事件簿", "原神", "崩坏：星穹铁道", "绝区零")
+              current_game = "其他"
+              for raw_line in str(message or "").splitlines():
+                  line = raw_line.strip()
+                  if not line:
+                      continue
+                  for name in game_names:
+                      if line.startswith(name + "：") or line.startswith(name + ":"):
+                          current_game = name
+                          break
+                  print("[签到结果][{}] {}".format(current_game, line), flush=True)
+
+
+          '''
+          if "def _emit_checkin_result_logs(message):" not in source:
+              source = source.replace("def main_handler(event: dict, context: dict):", helper + "def main_handler(event: dict, context: dict):", 1)
+          call = "    _emit_checkin_result_logs(push_message)\n    push.push(status_code, push_message)"
+          if call not in source:
+              if "    push.push(status_code, push_message)" not in source:
+                  raise SystemExit("HoYoLAB main_handler result/push call not found; refusing to build without result logging")
+              source = source.replace("    push.push(status_code, push_message)", call, 1)
+          path.write_text(source, encoding="utf-8")
+          if "[签到结果][绝区零]" not in source and "_emit_checkin_result_logs" not in source:
+              raise SystemExit("HoYoLAB result logger patch verification failed")
+          print("HoYoLAB returned check-in results will be emitted as game-tagged LTS log lines.")
+          PY
+
       - name: Set up Python
         if: steps.source.outputs.present == 'true'
         uses: actions/setup-python@v5
