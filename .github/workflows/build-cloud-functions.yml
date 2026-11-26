@@ -48,10 +48,19 @@ jobs:
                   line = raw_line.strip()
                   if not line:
                       continue
+                  # Ignore empty game section headers such as "绝区零：" or "绝区零:".
+                  # They are formatting artifacts, not check-in results.
+                  empty_header = False
                   for name in game_names:
+                      if line == name + "：" or line == name + ":":
+                          current_game = name
+                          empty_header = True
+                          break
                       if line.startswith(name + "：") or line.startswith(name + ":"):
                           current_game = name
                           break
+                  if empty_header:
+                      continue
                   print("[签到结果][{}] {}".format(current_game, line), flush=True)
 
 
