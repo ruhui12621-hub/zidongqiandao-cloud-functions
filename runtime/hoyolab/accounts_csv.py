@@ -73,13 +73,13 @@ def _make_config(base, row):
     data.setdefault("games", {})
     data.setdefault("mihoyobbs", {})
     data.setdefault("web_activity", {})
-    if row["platform"] != "miyoushe_cn":
+    if row["server"] != "cn":
         data["mihoyobbs"]["enable"] = False
         data["web_activity"]["enable"] = False
     for region in ("cn", "os"):
         data["games"].setdefault(region, {})
         data.setdefault("cloud_games", {}).setdefault(region, {})["enable"] = False
-    if row["platform"] == "miyoushe_cn":
+    if row["server"] == "cn":
         data["account"].update({
             "cookie": row["credential"], "stuid": row["stuid"],
             "stoken": row["stoken"], "mid": row["mid"]
