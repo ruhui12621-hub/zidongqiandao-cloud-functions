@@ -105,7 +105,7 @@ def run_accounts():
         return main.main()
     active = [row for row in rows if row["active"]]
     if not active:
-        raise RuntimeError("HoYoLAB accounts.csv 中没有启用的账号；未发送请求")
+        return 0, "accounts.csv 中没有启用的账号，未发送任何请求。"
     with open(config.config_Path, "r", encoding="utf-8") as source:
         base = yaml.load(source, Loader=yaml.FullLoader)
     original_path = config.config_Path
