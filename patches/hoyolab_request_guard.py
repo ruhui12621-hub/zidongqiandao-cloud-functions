@@ -134,6 +134,8 @@ def _invalidate_cookie(cookie: str, reason: str) -> str:
     os_config = config.config.get("games", {}).get("os", {})
     os_config["cookie"] = "CookieError"
     os_config["enable"] = False
+    # Also block a warm FunctionGraph worker immediately; user_data persists across cold starts.
+    os.environ[COOKIE_INVALID_ENV] = fingerprint
     message = f"[COOKIE_INVALID][sha256={fingerprint}] HoYoLAB Cookie 已确认失效：{reason}"
     log.error(message)
     print(message, flush=True)
