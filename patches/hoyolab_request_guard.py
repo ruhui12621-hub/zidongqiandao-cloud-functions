@@ -147,6 +147,7 @@ def _invalidate_cookie(cookie: str, reason: str) -> str:
     os_config["enable"] = False
     # Also block a warm FunctionGraph worker immediately; user_data persists across cold starts.
     os.environ[COOKIE_INVALID_ENV] = fingerprint
+    config.hoyolab_os_cookie_invalid_sha256 = fingerprint
     message = f"[COOKIE_INVALID][sha256={fingerprint}] HoYoLAB Cookie 已确认失效：{reason}"
     log.error(message)
     print(message, flush=True)
@@ -159,7 +160,7 @@ def run_task():
         log.warning("国际服 Cookie 为空或已作废；未发送请求")
         return "国际服 Cookie 不可用，已跳过"
     fingerprint = cookie_fingerprint(cookie)
-    blocked = os.getenv(COOKIE_INVALID_ENV, "").strip().lower()
+    blocked = str(getattr(config, "hoyolab_os_cookie_invalid_sha256", "") or os.getenv(COOKIE_INVALID_ENV, "")).strip().lower()
     if blocked and blocked == fingerprint:
         games["cookie"] = "CookieError"
         games["enable"] = False
@@ -256,6 +257,12 @@ replace_function(ROOT / "account.py", "get_account_list", r'''def get_account_li
 
 replace_function(ROOT / "index.py", "main_handler", r'''def main_handler(event: dict, context: dict):
     config.serverless = True
+    # Timer/event FunctionGraph handlers read user_data through Context.getUserData.
+    try:
+        getter = getattr(context, "getUserData", None)
+        config.hoyolab_os_cookie_invalid_sha256 = getter("HOYOLAB_OS_COOKIE_INVALID_SHA256") if callable(getter) else ""
+    except Exception:
+        config.hoyolab_os_cookie_invalid_sha256 = ""
     try:
         status_code, push_message = main.main()
     except CookieError as exc:
