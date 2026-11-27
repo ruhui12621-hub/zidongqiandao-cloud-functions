@@ -57,7 +57,7 @@ def load_accounts():
             if row["credential"]:
                 credentials.add(row["credential"])
             if row["user_id"]:
-                user_ids.add((row["platform"], row["user_id"]))
+                user_ids.add((row["server"], row["user_id"]))
             row["games_set"] = games
             row["active"] = active
             rows.append(row)
