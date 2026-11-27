@@ -58,7 +58,7 @@ def _parse_report(content):
         return None
 
 
-def _query_recent_invalid(context, platform, account_id, credential):
+def _query_recent_report(context, platform, account_id, credential):
     region = _user_data(context, "HUAWEI_CLOUD_REGION")
     group_id = _user_data(context, "LTS_LOG_GROUP_ID")
     stream_id = _user_data(context, "LTS_LOG_STREAM_ID")
@@ -109,7 +109,7 @@ def _query_recent_invalid(context, platform, account_id, credential):
         if (item.get("platform") != platform or
                 str(item.get("account_id")) != str(account_id) or
                 item.get("sha256") != fingerprint(credential) or
-                str(item.get("status", "")).upper() != "INVALID"):
+                str(item.get("status", "")).upper() not in ("VALID", "INVALID")):
             continue
         try:
             stamp = datetime.fromisoformat(str(item.get("timestamp", "")).replace("Z", "+00:00"))
@@ -123,16 +123,16 @@ def _query_recent_invalid(context, platform, account_id, credential):
 
 
 def should_skip(context, platform, account_id, credential):
-    """Only a matching INVALID report newer than 48 hours can block this credential."""
+    """Use the newest matching VALID/INVALID report; only a fresh INVALID report blocks."""
     try:
-        previous = _query_recent_invalid(context, platform, account_id, credential)
+        previous = _query_recent_report(context, platform, account_id, credential)
     except Exception as exc:
         print("[COOKIE_GUARD][status=QUERY_UNAVAILABLE][platform={}] {}".format(
             platform, str(exc)[:240]), flush=True)
         return False
-    if previous is None:
+    if previous is None or str(previous.get("status", "")).upper() != "INVALID":
         return False
-    report(platform, account_id, credential, "INVALID", "48小时内失效报告续期；跳过外部请求")
+    report(platform, account_id, credential, "INVALID", "最新可信状态仍为失效；跳过外部请求")
     print("[COOKIE_GUARD][status=SKIPPED][platform={}][account_id={}] 最近48小时存在相同凭据失效报告".format(
         platform, account_id), flush=True)
     return True
