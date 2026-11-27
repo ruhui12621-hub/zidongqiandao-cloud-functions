@@ -211,6 +211,12 @@ replace_function(ROOT / "main.py", "handle_login", r'''def handle_login() -> Non
         log.info("当前只运行国际服/云游戏任务，跳过米游社登录与 Token 补齐")
         return
     if any(account.get(k, "") == "" for k in ("stuid", "stoken", "mid")):
+        if config.serverless:
+            log.warning("云函数缺少 BBS 账号标识；不在定时任务中尝试登录，直接跳过 BBS/国服/网页活动任务")
+            config.config["mihoyobbs"]["enable"] = False
+            config.config["games"]["cn"]["enable"] = False
+            config.config["web_activity"]["enable"] = False
+            return
         if needs_bbs:
             login.login()
             time.sleep(random.randint(3, 8))
