@@ -44,7 +44,7 @@ def _read_csv_accounts():
             active = _enabled(row["enabled"])
             if (active and not token) or any(ch.isspace() for ch in token):
                 raise ValueError("森空岛 accounts.csv 第 %d 行启用账号 Token 无效" % line)
-            if not games or not set(games).issubset(SUPPORTED_GAMES):
+            if not set(games).issubset(SUPPORTED_GAMES):
                 raise ValueError("森空岛 accounts.csv 第 %d 行游戏列表无效" % line)
             if token and token in tokens:
                 raise ValueError("森空岛 accounts.csv 存在重复 Token")
@@ -135,6 +135,9 @@ def handler():
         print("[账号上下文][account_id=%s][user_id=%s][name=%s]" % (
             account.get("account_id", ""), account.get("platformUserId", ""),
             account.get("name", "")), flush=True)
+        if not account["games"]:
+            print("[账号执行结束][account_id=%s][status=skipped] 未选择任何签到游戏，未发送请求。" % account.get("account_id", ""), flush=True)
+            continue
         success, message = start(account)
         if not success:
             failures += 1
