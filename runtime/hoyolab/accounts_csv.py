@@ -127,10 +127,13 @@ def run_accounts():
                     failures += 1
                 if status == 3:
                     captcha = True
-                results.append((row, status, message or "任务执行完成，但没有返回消息"))
+                normalized_message = message or "任务执行完成，但没有返回消息"
+                if not any(line.startswith("[签到结果]") for line in normalized_message.splitlines()):
+                    normalized_message = "[签到结果][其他] " + normalized_message
+                results.append((row, status, normalized_message))
             except Exception as exc:
                 failures += 1
-                message = "签到失败：%s: %s" % (type(exc).__name__, exc)
+                message = "[签到结果][其他] 签到失败：%s: %s" % (type(exc).__name__, exc)
                 results.append((row, 1, message))
                 print("[账号异常][account_id=%s] %s" % (row["account_id"], message), flush=True)
             finally:
