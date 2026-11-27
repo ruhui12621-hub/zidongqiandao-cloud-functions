@@ -44,7 +44,7 @@ def load_accounts():
                 raise ValueError("accounts.csv 第 %d 行启用的国服账号缺少 stuid/stoken/mid" % line)
             games = {part.strip() for part in row["games"].split("|") if part.strip()}
             allowed = CN_GAMES if platform == "miyoushe_cn" else OS_GAMES
-            if not games or not games.issubset(allowed):
+            if not games.issubset(allowed):
                 raise ValueError("accounts.csv 第 %d 行游戏列表无效" % line)
             if row["credential"] and row["credential"] in credentials:
                 raise ValueError("accounts.csv 存在重复凭据；拒绝重复执行同一账号")
