@@ -63,6 +63,11 @@ class RequestGuardTests(unittest.TestCase):
                 sys.modules[name] = module
         os.environ.pop(self.module.COOKIE_INVALID_ENV, None)
 
+    def test_cookie_fingerprint_ignores_field_order_and_spacing(self):
+        first = self.module.cookie_fingerprint("uid=123; token=abc; mid=xyz")
+        second = self.module.cookie_fingerprint(" mid=xyz ;uid=123;token=abc ")
+        self.assertEqual(first, second)
+
     def test_already_signed_uses_one_status_request_only(self):
         session = FakeSession([FakeResponse({"retcode": 0, "data": {"is_sign": True}})])
         self.module.get_new_session = lambda: session
