@@ -41,7 +41,18 @@ class HoyoApiError(Exception):
     pass
 
 def cookie_fingerprint(cookie: str) -> str:
-    return hashlib.sha256((cookie or "").strip().encode("utf-8")).hexdigest()
+    # Canonicalize Cookie fields so harmless header-order/spacing changes cannot revive an expired credential.
+    fields = []
+    for segment in (cookie or "").split(";"):
+        segment = segment.strip()
+        if "=" not in segment:
+            continue
+        key, value = segment.split("=", 1)
+        key = key.strip()
+        if key:
+            fields.append((key, value.strip()))
+    canonical = ";".join(f"{key}={value}" for key, value in sorted(fields)) or (cookie or "").strip()
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 def _response_json(response, endpoint: str, allow_already_signed: bool = False) -> dict:
     status = int(getattr(response, "status_code", 0) or 0)
