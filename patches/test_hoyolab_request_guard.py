@@ -83,6 +83,13 @@ class RequestGuardTests(unittest.TestCase):
             self.module.hoyo_checkin("https://api.invalid/event", "act")
         self.assertEqual(len(session.calls), 1)
 
+    def test_explicit_please_login_retcode_is_expired_cookie(self):
+        session = FakeSession([FakeResponse({"retcode": 10001, "message": "Please login"})])
+        self.module.get_new_session = lambda: session
+        with self.assertRaises(self.module.HoyoCookieExpired):
+            self.module.hoyo_checkin("https://api.invalid/event", "act")
+        self.assertEqual(len(session.calls), 1)
+
     def test_reward_auth_failure_never_posts_sign(self):
         session = FakeSession([
             FakeResponse({"retcode": 0, "data": {"is_sign": False, "first_bind": False, "total_sign_day": 1}}),
