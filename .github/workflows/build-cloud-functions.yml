@@ -166,100 +166,8 @@ jobs:
               raise SystemExit("Skland per-game filter verification failed")
           print("Skland signing now filters characters by each account's enabled games.")
           PY
-          # Keep account loading separate from the platform's signing implementation.
-          cat > dist/skland/skland_entry.py <<'PY'
-          import hashlib
-          import json
-          import logging
-          import os
-
-          import skyland
-
-          ROOT = os.path.dirname(os.path.abspath(__file__))
-          file_save_token = os.path.join(ROOT, "code", "INPUT_HYPERGRYPH_TOKEN.txt")
-          account_config_path = os.path.join(ROOT, "code", "INPUT_HYPERGRYPH_ACCOUNTS.json")
-          SUPPORTED_GAMES = {"arknights", "endfield"}
-
-          logging.getLogger().setLevel(logging.INFO)
-
-
-          def _stable_id(token):
-              return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-          def _read_legacy_tokens():
-              if not os.path.exists(file_save_token):
-                  return []
-              result = []
-              with open(file_save_token, "r", encoding="utf-8") as source:
-                  for raw in source:
-                      token = raw.strip()
-                      if token and not token.startswith("#") and token not in result:
-                          result.append(token)
-              return result
-
-
-          def load_accounts():
-              if os.path.exists(account_config_path):
-                  with open(account_config_path, "r", encoding="utf-8") as source:
-                      raw = source.read().strip()
-                  if raw:
-                      document = json.loads(raw)
-                      if document.get("version") != 1 or not isinstance(document.get("accounts"), list):
-                          raise ValueError("森空岛账号配置格式不受支持")
-                      accounts = []
-                      seen_tokens = set()
-                      seen_ids = set()
-                      for item in document["accounts"]:
-                          if not isinstance(item, dict):
-                              raise ValueError("森空岛账号配置包含无效条目")
-                          token = str(item.get("token") or "").strip()
-                          games = item.get("games")
-                          if not token or not isinstance(games, list):
-                              raise ValueError("森空岛账号缺少 Token 或游戏列表")
-                          selected = sorted(set(games))
-                          if not selected or not set(selected).issubset(SUPPORTED_GAMES):
-                              raise ValueError("森空岛账号游戏选择为空或包含不支持的游戏")
-                          stable_id = str(item.get("platformUserId") or _stable_id(token))
-                          if token in seen_tokens or stable_id in seen_ids:
-                              raise ValueError("森空岛账号配置存在重复账号")
-                          seen_tokens.add(token)
-                          seen_ids.add(stable_id)
-                          accounts.append({"platformUserId": stable_id, "token": token, "games": selected})
-                      return accounts
-
-              # Legacy token files had no game-selection field. Preserve their old all-games behavior.
-              return [
-                  {"platformUserId": _stable_id(token), "token": token, "games": sorted(SUPPORTED_GAMES)}
-                  for token in _read_legacy_tokens()
-              ]
-
-
-          def start(token, games):
-              try:
-                  cred = skyland.get_cred_by_token(token)
-                  success, messages = skyland.do_sign(cred, enabled_games=games)
-                  for message in messages or []:
-                      game_name = "其他"
-                      if isinstance(message, str) and message.startswith("[") and "]" in message:
-                          game_name = message[1:message.index("]")]
-                      logging.info("[签到结果][%s] %s", game_name, message)
-                  if not success:
-                      raise RuntimeError("森空岛签到执行返回失败")
-              except Exception as ex:
-                  logging.exception("森空岛签到执行失败")
-                  raise RuntimeError("森空岛签到执行失败：" + str(ex)) from ex
-
-
-          def handler():
-              accounts = load_accounts()
-              if not accounts:
-                  raise RuntimeError("森空岛账号配置为空")
-              for account in accounts:
-                  start(account["token"], account["games"])
-
-
-          PY
+          # The shared runtime entrypoint is installed from runtime/skland/skland_entry.py
+          # after this package is assembled. Only accounts.csv is an account source.
           cat > dist/skland/index.py <<'PY'
           """Huawei FunctionGraph Python 3.10 handler."""
           from skland_entry import handler as run_skland
@@ -268,49 +176,12 @@ jobs:
               run_skland()
               return {"statusCode": 200, "body": "Skland task finished"}
           PY
-          touch dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt
-          printf '{"version":1,"accounts":[]}\n' > dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json
+          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
           cat > dist/skland/DEPLOY.txt <<'TXT'
           Huawei FunctionGraph runtime: Python 3.10
           Handler: index.handler
-          This package is for the built-in Python runtime, not Custom Runtime.
-          Account config: ./code/INPUT_HYPERGRYPH_ACCOUNTS.json
-          Legacy Token file retained: ./code/INPUT_HYPERGRYPH_TOKEN.txt
+          Account source: ./code/accounts.csv
           TXT
-          # Test structured per-account games, legacy compatibility and fail-closed empty configuration.
-          (cd dist/skland && python - <<'PY'
-          import json
-          import os
-          import skland_entry as index
-          assert os.path.isfile(index.file_save_token), index.file_save_token
-          assert os.path.isfile(index.account_config_path), index.account_config_path
-
-          with open(index.account_config_path, "w", encoding="utf-8") as config_file:
-              json.dump({"version": 1, "accounts": [
-                  {"platformUserId": "account-a", "token": "unit-test-token", "games": ["endfield"]}
-              ]}, config_file)
-          accounts = index.load_accounts()
-          assert len(accounts) == 1 and accounts[0]["games"] == ["endfield"], accounts
-
-          os.remove(index.account_config_path)
-          with open(index.file_save_token, "w", encoding="utf-8") as token_file:
-              token_file.write("legacy-token\n")
-          legacy = index.load_accounts()
-          assert len(legacy) == 1 and set(legacy[0]["games"]) == index.SUPPORTED_GAMES, legacy
-
-          with open(index.account_config_path, "w", encoding="utf-8") as config_file:
-              config_file.write('{"version":1,"accounts":[]}')
-          with open(index.file_save_token, "w", encoding="utf-8") as token_file:
-              token_file.write("")
-          try:
-              index.handler()
-          except RuntimeError as exc:
-              assert "账号配置为空" in str(exc), str(exc)
-              print("Skland structured config, legacy compatibility and empty-config guard passed.")
-          else:
-              raise AssertionError("Empty account configuration unexpectedly reported success")
-          PY
-          )
           find dist/skland -type d -name __pycache__ -prune -exec rm -rf {} +
           find dist/skland -type d \( -name tests -o -name test \) -prune -exec rm -rf {} +
           find dist/skland -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
@@ -349,6 +220,10 @@ jobs:
             unzip -oq skland.zip -d dist/skland
           fi
           python patches/apply_accounts_csv.py dist
+          mkdir -p dist/hoyolab/config dist/skland/code
+          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/hoyolab/config/accounts.csv
+          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
+          rm -f dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt dist/skland/TOKEN.txt
           python -m py_compile dist/hoyolab/accounts_csv.py dist/hoyolab/index.py dist/skland/skland_entry.py
           (cd dist/hoyolab && zip -9 -qr "$GITHUB_WORKSPACE/hoyolab.zip" .)
           (cd dist/skland && zip -9 -qr "$GITHUB_WORKSPACE/skland.zip" .)

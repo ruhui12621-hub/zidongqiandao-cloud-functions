@@ -9,7 +9,7 @@ import main
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(ROOT, "config", "accounts.csv")
-FIELDS = ("account_id", "platform", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
+FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
 CN_GAMES = {"genshin", "honkai2", "honkai3rd", "tears_of_themis", "honkai_sr", "zzz"}
 OS_GAMES = {"genshin", "honkai3rd", "tears_of_themis", "honkai_sr", "zzz"}
 
@@ -33,22 +33,23 @@ def load_accounts():
             if not any(row.values()):
                 continue
             platform = row["platform"]
-            if platform not in ("hoyolab", "miyoushe_cn"):
-                raise ValueError("accounts.csv 第 %d 行平台不属于 HoYoLAB 函数" % line)
+            server = row["server"]
+            if platform != "hoyolab" or server not in ("cn", "os"):
+                raise ValueError("accounts.csv 第 %d 行必须属于 HoYoLAB 平台且 server 为 cn/os" % line)
             if not row["account_id"] or row["account_id"] in ids:
                 raise ValueError("accounts.csv 第 %d 行账号 ID 为空或重复" % line)
             active = _enabled(row["enabled"])
             if (active and not row["credential"]) or "\n" in row["credential"] or "\r" in row["credential"]:
                 raise ValueError("accounts.csv 第 %d 行启用账号凭据为空或包含换行" % line)
-            if active and platform == "miyoushe_cn" and not all(row[k] for k in ("stuid", "stoken", "mid")):
+            if active and server == "cn" and not all(row[k] for k in ("stuid", "stoken", "mid")):
                 raise ValueError("accounts.csv 第 %d 行启用的国服账号缺少 stuid/stoken/mid" % line)
             games = {part.strip() for part in row["games"].split("|") if part.strip()}
-            allowed = CN_GAMES if platform == "miyoushe_cn" else OS_GAMES
+            allowed = CN_GAMES if server == "cn" else OS_GAMES
             if not games.issubset(allowed):
                 raise ValueError("accounts.csv 第 %d 行游戏列表无效" % line)
             if row["credential"] and row["credential"] in credentials:
                 raise ValueError("accounts.csv 存在重复凭据；拒绝重复执行同一账号")
-            if row["user_id"] and (row["platform"], row["user_id"]) in user_ids:
+            if row["user_id"] and (row["server"], row["user_id"]) in user_ids:
                 raise ValueError("accounts.csv 存在重复 user_id；拒绝重复执行同一账号")
             if any("\n" in row[key] or "\r" in row[key] for key in ("account_id", "name", "user_id", "remark")):
                 raise ValueError("accounts.csv 第 %d 行包含非法换行字段" % line)
@@ -72,13 +73,13 @@ def _make_config(base, row):
     data.setdefault("games", {})
     data.setdefault("mihoyobbs", {})
     data.setdefault("web_activity", {})
-    if row["platform"] != "miyoushe_cn":
+    if row["server"] != "cn":
         data["mihoyobbs"]["enable"] = False
         data["web_activity"]["enable"] = False
     for region in ("cn", "os"):
         data["games"].setdefault(region, {})
         data.setdefault("cloud_games", {}).setdefault(region, {})["enable"] = False
-    if row["platform"] == "miyoushe_cn":
+    if row["server"] == "cn":
         data["account"].update({
             "cookie": row["credential"], "stuid": row["stuid"],
             "stoken": row["stoken"], "mid": row["mid"]
@@ -101,8 +102,7 @@ def _make_config(base, row):
 def run_accounts():
     rows = load_accounts()
     if rows is None:
-        # Old cloud packages remain usable until the APK migrates their legacy config.
-        return main.main()
+        raise FileNotFoundError("缺少必需的 config/accounts.csv；本函数仅支持 CSV 账号配置")
     active = [row for row in rows if row["active"]]
     if not active:
         return 0, "accounts.csv 中没有启用的账号，未发送任何请求。"
