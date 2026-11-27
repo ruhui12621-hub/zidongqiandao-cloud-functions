@@ -176,7 +176,7 @@ jobs:
               run_skland()
               return {"statusCode": 200, "body": "Skland task finished"}
           PY
-          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\\r\\n' > dist/skland/code/accounts.csv
+          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
           cat > dist/skland/DEPLOY.txt <<'TXT'
           Huawei FunctionGraph runtime: Python 3.10
           Handler: index.handler
@@ -221,8 +221,8 @@ jobs:
           fi
           python patches/apply_accounts_csv.py dist
           mkdir -p dist/hoyolab/config dist/skland/code
-          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\\r\\n' > dist/hoyolab/config/accounts.csv
-          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\\r\\n' > dist/skland/code/accounts.csv
+          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/hoyolab/config/accounts.csv
+          printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
           rm -f dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt dist/skland/TOKEN.txt
           python -m py_compile dist/hoyolab/accounts_csv.py dist/hoyolab/index.py dist/skland/skland_entry.py
           (cd dist/hoyolab && zip -9 -qr "$GITHUB_WORKSPACE/hoyolab.zip" .)
