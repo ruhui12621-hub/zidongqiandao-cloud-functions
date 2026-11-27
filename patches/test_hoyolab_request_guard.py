@@ -118,6 +118,14 @@ class RequestGuardTests(unittest.TestCase):
         result = self.module.run_task()
         self.assertIn("永久标记作废", result)
 
+    def test_functiongraph_context_marker_blocks_without_environment_variable(self):
+        cookie = self.config.config["games"]["os"]["cookie"]
+        self.config.hoyolab_os_cookie_invalid_sha256 = self.module.cookie_fingerprint(cookie)
+        os.environ.pop(self.module.COOKIE_INVALID_ENV, None)
+        self.module.get_new_session = lambda: self.fail("must not create an HTTP session")
+        result = self.module.run_task()
+        self.assertIn("永久标记作废", result)
+
     def test_expiry_stops_other_enabled_games_in_same_invocation(self):
         session = FakeSession([FakeResponse({"retcode": -100, "message": "login expired"})])
         self.module.get_new_session = lambda: session
