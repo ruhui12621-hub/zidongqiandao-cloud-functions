@@ -344,6 +344,7 @@ jobs:
           set -euxo pipefail
           if [ "${{ steps.source.outputs.present }}" = "true" ]; then
             mkdir -p dist/hoyolab dist/skland
+            rm -rf dist/hoyolab/package
             unzip -oq hoyolab.zip -d dist/hoyolab
             unzip -oq skland.zip -d dist/skland
           fi
