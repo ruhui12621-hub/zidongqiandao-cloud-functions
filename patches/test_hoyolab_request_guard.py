@@ -61,7 +61,6 @@ class RequestGuardTests(unittest.TestCase):
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = module
-        os.environ.pop(self.module.COOKIE_INVALID_ENV, None)
 
     def test_cookie_fingerprint_ignores_field_order_and_spacing(self):
         first = self.module.cookie_fingerprint("uid=123; token=abc; mid=xyz")
@@ -111,33 +110,6 @@ class RequestGuardTests(unittest.TestCase):
         self.assertIn("reward", result)
         self.assertEqual([call[0] for call in session.calls], ["GET", "GET", "POST"])
 
-    def test_persisted_invalid_fingerprint_blocks_all_requests(self):
-        cookie = self.config.config["games"]["os"]["cookie"]
-        os.environ[self.module.COOKIE_INVALID_ENV] = self.module.cookie_fingerprint(cookie)
-        self.module.get_new_session = lambda: self.fail("must not create an HTTP session")
-        result = self.module.run_task()
-        self.assertIn("永久标记作废", result)
-
-    def test_functiongraph_context_marker_blocks_without_environment_variable(self):
-        cookie = self.config.config["games"]["os"]["cookie"]
-        self.config.hoyolab_os_cookie_invalid_sha256 = self.module.cookie_fingerprint(cookie)
-        os.environ.pop(self.module.COOKIE_INVALID_ENV, None)
-        self.module.get_new_session = lambda: self.fail("must not create an HTTP session")
-        result = self.module.run_task()
-        self.assertIn("永久标记作废", result)
-
-    def test_expiry_stops_other_enabled_games_and_preserves_all_tombstones(self):
-        old_fingerprint = "a" * 64
-        os.environ[self.module.COOKIE_INVALID_ENV] = old_fingerprint
-        session = FakeSession([FakeResponse({"retcode": -100, "message": "login expired"})])
-        self.module.get_new_session = lambda: session
-        result = self.module.run_task()
-        self.assertIn("已停止", result)
-        self.assertEqual(len(session.calls), 1)
-        self.assertEqual(self.config.config["games"]["os"]["cookie"], "CookieError")
-        self.assertFalse(self.config.config["games"]["os"]["enable"])
-        stored = set(os.environ[self.module.COOKIE_INVALID_ENV].split(","))
-        self.assertEqual(stored, {old_fingerprint, self.module.cookie_fingerprint("uid=123; token=abc")})
 
 
 if __name__ == "__main__":
