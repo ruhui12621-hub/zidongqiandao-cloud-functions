@@ -6,6 +6,7 @@ import yaml
 
 import config
 import main
+import huawei_lts_cookie_guard as cookie_guard
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(ROOT, "config", "accounts.csv")
@@ -99,7 +100,7 @@ def _make_config(base, row):
     return data
 
 
-def run_accounts():
+def run_accounts(context=None):
     rows = load_accounts()
     if rows is None:
         raise FileNotFoundError("缺少必需的 config/accounts.csv；本函数仅支持 CSV 账号配置")
@@ -117,12 +118,26 @@ def run_accounts():
             print(marker, flush=True)
             temp_path = None
             try:
+                if row["server"] == "os" and row["games_set"] and cookie_guard.should_skip(
+                        context, "hoyolab", row["account_id"], row["credential"]):
+                    message = "[签到结果][其他] 最近48小时内相同 Cookie 已报告失效；本次跳过全部 HoYoLAB 请求。"
+                    results.append((row, 0, message))
+                    continue
                 with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".yaml", delete=False) as target:
                     yaml.dump(_make_config(base, row), target, Dumper=yaml.Dumper,
                               sort_keys=False, allow_unicode=True)
                     temp_path = target.name
                 config.config_Path = temp_path
                 status, message = main.main()
+                active_config = config.config if isinstance(config.config, dict) else {}
+                if row["server"] == "os" and row["games_set"]:
+                    os_config = active_config.get("games", {}).get("os", {})
+                    if str(os_config.get("cookie", "")).strip() == "CookieError":
+                        cookie_guard.report("hoyolab", row["account_id"], row["credential"], "INVALID",
+                                             "HoYoLAB 接口明确拒绝当前 Cookie")
+                    elif status == 0:
+                        cookie_guard.report("hoyolab", row["account_id"], row["credential"], "VALID",
+                                             "本次启用游戏的认证请求成功")
                 if status in (1, 2):
                     failures += 1
                 if status == 3:
@@ -133,6 +148,9 @@ def run_accounts():
                 results.append((row, status, normalized_message))
             except Exception as exc:
                 failures += 1
+                if row["server"] == "os" and row["games_set"] and cookie_guard.is_auth_failure(exc):
+                    cookie_guard.report("hoyolab", row["account_id"], row["credential"], "INVALID",
+                                         "认证接口返回明确失效错误")
                 message = "[签到结果][其他] 签到失败：%s: %s" % (type(exc).__name__, exc)
                 results.append((row, 1, message))
                 print("[账号异常][account_id=%s] %s" % (row["account_id"], message), flush=True)
