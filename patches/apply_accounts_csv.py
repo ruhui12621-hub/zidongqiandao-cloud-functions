@@ -14,11 +14,15 @@ def patch_hoyolab():
     source = target.read_text(encoding="utf-8")
     if "import accounts_csv" not in source:
         source = source.replace("import main\n", "import main\nimport accounts_csv\n", 1)
-    if "status_code, push_message = accounts_csv.run_accounts()" not in source:
-        if "status_code, push_message = main.main()" not in source:
+    if "status_code, push_message = accounts_csv.run_accounts(context=context)" not in source:
+        if "status_code, push_message = main.main()" in source:
+            source = source.replace("status_code, push_message = main.main()",
+                                    "status_code, push_message = accounts_csv.run_accounts(context=context)", 1)
+        elif "status_code, push_message = accounts_csv.run_accounts()" in source:
+            source = source.replace("status_code, push_message = accounts_csv.run_accounts()",
+                                    "status_code, push_message = accounts_csv.run_accounts(context=context)", 1)
+        else:
             raise SystemExit("HoYoLAB main_handler call not found; refusing to patch")
-        source = source.replace("status_code, push_message = main.main()",
-                                "status_code, push_message = accounts_csv.run_accounts()", 1)
     start = source.index("def _emit_checkin_result_logs(message):")
     end = source.index("\n\ndef main_handler(", start)
     logger = '''def _emit_checkin_result_logs(message):
@@ -55,6 +59,10 @@ def patch_hoyolab():
         (REPO / "runtime" / "hoyolab" / "accounts_csv.py").read_text(encoding="utf-8"),
         encoding="utf-8"
     )
+    (HOYO / "huawei_lts_cookie_guard.py").write_text(
+        (REPO / "runtime" / "huawei_lts_cookie_guard.py").read_text(encoding="utf-8"),
+        encoding="utf-8"
+    )
 
 
 def patch_skland():
@@ -67,6 +75,10 @@ def patch_skland():
     skyland_file.write_text(skyland_source, encoding="utf-8")
     (SKLAND / "skland_entry.py").write_text(
         (REPO / "runtime" / "skland" / "skland_entry.py").read_text(encoding="utf-8"),
+        encoding="utf-8"
+    )
+    (SKLAND / "huawei_lts_cookie_guard.py").write_text(
+        (REPO / "runtime" / "huawei_lts_cookie_guard.py").read_text(encoding="utf-8"),
         encoding="utf-8"
     )
 
