@@ -4,7 +4,6 @@ import logging
 import os
 
 import skyland
-import huawei_lts_cookie_guard as cookie_guard
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 csv_config_path = os.path.join(ROOT, "code", "accounts.csv")
@@ -104,16 +103,7 @@ def handler(context=None):
         if not account["games"]:
             print("[账号执行结束][account_id=%s][status=skipped] 未选择任何签到游戏，未发送请求。" % account.get("account_id", ""), flush=True)
             continue
-        if cookie_guard.should_skip(context, "skland", account["account_id"], account["token"]):
-            print("[账号执行结束][account_id=%s][status=skipped] 最近48小时内相同 Token 已报告失效；本次跳过全部森空岛请求。" % account.get("account_id", ""), flush=True)
-            continue
         success, message = start(account)
-        if success:
-            cookie_guard.report("skland", account["account_id"], account["token"], "VALID",
-                                "本次森空岛签到认证流程成功")
-        elif cookie_guard.is_auth_failure(message):
-            cookie_guard.report("skland", account["account_id"], account["token"], "INVALID",
-                                "森空岛接口返回明确认证失效错误")
         if not success:
             failures += 1
         print("[账号执行结束][account_id=%s][status=%s] %s" % (
