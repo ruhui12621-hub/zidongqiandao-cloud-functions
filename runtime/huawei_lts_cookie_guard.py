@@ -153,6 +153,7 @@ def should_skip(context, platform, account_id, credential):
 def is_auth_failure(message):
     text = str(message or "").lower()
     exact_markers = ("http 401", "unauthorized", "invalid token",
-                     "token expired", "token is expired", "请重新登录", "token无效",
-                     "令牌失效", "凭据已过期")
+                     "token expired", "token is expired", "token has expired",
+                     "expired token", "请重新登录", "登录已过期", "登录状态失效",
+                     "token无效", "token 无效", "令牌无效", "令牌失效", "凭据已过期")
     return any(marker in text for marker in exact_markers)
