@@ -27,7 +27,7 @@ def load_accounts():
         reader = csv.DictReader(source)
         if tuple(reader.fieldnames or ()) != FIELDS:
             raise ValueError("HoYoLAB accounts.csv 表头不匹配；拒绝执行")
-        rows, ids, credentials = [], set(), set()
+        rows, ids, credentials, user_ids = [], set(), set(), set()
         for line, raw in enumerate(reader, start=2):
             row = {key: str(raw.get(key) or "").strip() for key in FIELDS}
             if not any(row.values()):
@@ -48,9 +48,15 @@ def load_accounts():
                 raise ValueError("accounts.csv 第 %d 行游戏列表无效" % line)
             if row["credential"] and row["credential"] in credentials:
                 raise ValueError("accounts.csv 存在重复凭据；拒绝重复执行同一账号")
+            if row["user_id"] and row["user_id"] in user_ids:
+                raise ValueError("accounts.csv 存在重复 user_id；拒绝重复执行同一账号")
+            if any("\n" in row[key] or "\r" in row[key] for key in ("account_id", "name", "user_id", "remark")):
+                raise ValueError("accounts.csv 第 %d 行包含非法换行字段" % line)
             ids.add(row["account_id"])
             if row["credential"]:
                 credentials.add(row["credential"])
+            if row["user_id"]:
+                user_ids.add(row["user_id"])
             row["games_set"] = games
             row["active"] = active
             rows.append(row)
