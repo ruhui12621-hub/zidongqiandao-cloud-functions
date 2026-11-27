@@ -1,14 +1,11 @@
 import csv
 import hashlib
-import json
 import logging
 import os
 
 import skyland
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-file_save_token = os.path.join(ROOT, "code", "INPUT_HYPERGRYPH_TOKEN.txt")
-account_config_path = os.path.join(ROOT, "code", "INPUT_HYPERGRYPH_ACCOUNTS.json")
 csv_config_path = os.path.join(ROOT, "code", "accounts.csv")
 FIELDS = ("account_id", "platform", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
 SUPPORTED_GAMES = {"arknights", "endfield"}
@@ -68,49 +65,10 @@ def _read_csv_accounts():
     return accounts
 
 
-def _read_legacy_tokens():
-    if not os.path.exists(file_save_token):
-        return []
-    result = []
-    with open(file_save_token, "r", encoding="utf-8") as source:
-        for raw in source:
-            token = raw.strip()
-            if token and not token.startswith("#") and token not in result:
-                result.append(token)
-    return result
-
-
-def _load_legacy_accounts():
-    if os.path.exists(account_config_path):
-        with open(account_config_path, "r", encoding="utf-8") as source:
-            raw = source.read().strip()
-        if raw:
-            document = json.loads(raw)
-            if document.get("version") != 1 or not isinstance(document.get("accounts"), list):
-                raise ValueError("森空岛旧账号配置格式不受支持")
-            accounts = []
-            for item in document["accounts"]:
-                token = str(item.get("token") or "").strip()
-                games = sorted(set(item.get("games") or []))
-                if not token or not games or not set(games).issubset(SUPPORTED_GAMES):
-                    raise ValueError("森空岛旧账号配置包含无效条目")
-                accounts.append({
-                    "account_id": _stable_id(token),
-                    "platformUserId": str(item.get("platformUserId") or _stable_id(token)),
-                    "name": "", "token": token, "games": games, "enabled": True
-                })
-            return accounts
-    return [{
-        "account_id": _stable_id(token), "platformUserId": _stable_id(token),
-        "name": "", "token": token, "games": sorted(SUPPORTED_GAMES), "enabled": True
-    } for token in _read_legacy_tokens()]
-
-
 def load_accounts():
-    if os.path.isfile(csv_config_path):
-        return _read_csv_accounts()
-    return _load_legacy_accounts()
-
+    if not os.path.isfile(csv_config_path):
+        raise FileNotFoundError("缺少必需的 code/accounts.csv；森空岛函数仅支持 CSV 账号配置")
+    return _read_csv_accounts()
 
 def start(account):
     try:
