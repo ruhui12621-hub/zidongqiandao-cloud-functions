@@ -114,6 +114,7 @@ class RequestGuardTests(unittest.TestCase):
         self.assertEqual(len(session.calls), 1)
         self.assertEqual(self.config.config["games"]["os"]["cookie"], "CookieError")
         self.assertFalse(self.config.config["games"]["os"]["enable"])
+        self.assertEqual(os.environ[self.module.COOKIE_INVALID_ENV], self.module.cookie_fingerprint("uid=123; token=abc"))
 
 
 if __name__ == "__main__":
