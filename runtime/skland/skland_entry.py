@@ -135,7 +135,8 @@ def handler():
     accounts = load_accounts()
     active = [account for account in accounts if account.get("enabled", True)]
     if not active:
-        raise RuntimeError("森空岛账号 CSV 中没有启用的账号")
+        print("森空岛 accounts.csv 中没有启用的账号，未发送任何请求。", flush=True)
+        return
     failures = 0
     for account in active:
         print("[账号上下文][account_id=%s][user_id=%s][name=%s]" % (
