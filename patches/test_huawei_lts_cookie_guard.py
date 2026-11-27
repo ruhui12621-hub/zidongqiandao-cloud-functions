@@ -54,7 +54,7 @@ class CookieGuardTests(unittest.TestCase):
         record = guard.report("hoyolab", "acct-1", self.credential, "VALID", "test")
         parsed = guard._parse_report("2026-11-27 INFO " + guard.REPORT_PREFIX +
                                      __import__("json").dumps(record))
-        self.assertEqual(parsed["sha256"], guard.fingerprint(self.credential))
+        self.assertEqual(parsed["sha256"], guard.fingerprint(self.credential, "hoyolab"))
         self.assertEqual(parsed["status"], "VALID")
 
 
