@@ -23,7 +23,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::source-bundle.zip is not uploaded yet; build will be skipped."
+            echo "::notice::source-bundle.zip is absent; the latest released packages will be reused."
           fi
 
       - name: Prepare source
@@ -86,7 +86,6 @@ jobs:
           PY
 
       - name: Set up Python
-        if: steps.source.outputs.present == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -322,8 +321,38 @@ jobs:
           echo "Compressed Skland Python ZIP size:"
           ls -lh "$GITHUB_WORKSPACE/skland.zip"
 
+      - name: Reuse latest packages when source bundle is absent
+        if: steps.source.outputs.present != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/hoyolab dist/skland
+          release_json="$(curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/ruhui12621-hub/zidongqiandao-cloud-functions/releases/latest)"
+          hoyolab_url="$(jq -r '.assets[] | select(.name == "hoyolab.zip") | .browser_download_url' <<< "$release_json" | head -n1)"
+          skland_url="$(jq -r '.assets[] | select(.name == "skland.zip") | .browser_download_url' <<< "$release_json" | head -n1)"
+          test -n "$hoyolab_url" && test -n "$skland_url"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 2 -H "Authorization: Bearer $GH_TOKEN" "$hoyolab_url" -o /tmp/hoyolab-previous.zip
+          curl -fL --retry 5 --retry-all-errors --retry-delay 2 -H "Authorization: Bearer $GH_TOKEN" "$skland_url" -o /tmp/skland-previous.zip
+          unzip -t /tmp/hoyolab-previous.zip >/dev/null
+          unzip -t /tmp/skland-previous.zip >/dev/null
+          unzip -q /tmp/hoyolab-previous.zip -d dist/hoyolab
+          unzip -q /tmp/skland-previous.zip -d dist/skland
+
+      - name: Apply CSV account execution adapters
+        run: |
+          set -euxo pipefail
+          if [ "${{ steps.source.outputs.present }}" = "true" ]; then
+            mkdir -p dist/hoyolab dist/skland
+            unzip -oq hoyolab.zip -d dist/hoyolab
+            unzip -oq skland.zip -d dist/skland
+          fi
+          python patches/apply_accounts_csv.py dist
+          python -m py_compile dist/hoyolab/accounts_csv.py dist/hoyolab/index.py dist/skland/skland_entry.py
+          (cd dist/hoyolab && zip -9 -qr "$GITHUB_WORKSPACE/hoyolab.zip" .)
+          (cd dist/skland && zip -9 -qr "$GITHUB_WORKSPACE/skland.zip" .)
+
       - name: Verify packages
-        if: steps.source.outputs.present == 'true'
         run: |
           unzip -l hoyolab.zip | head -40
           unzip -l skland.zip | head -40
@@ -331,7 +360,6 @@ jobs:
           test -s skland.zip
 
       - name: Upload build artifacts
-        if: steps.source.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: cloud-function-packages
@@ -342,7 +370,7 @@ jobs:
           retention-days: 30
 
       - name: Publish versioned release assets
-        if: steps.source.outputs.present == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: cloud-functions-${{ github.run_number }}-${{ github.sha }}
