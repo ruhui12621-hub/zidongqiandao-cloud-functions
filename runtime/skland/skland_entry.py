@@ -120,9 +120,9 @@ def start(account):
             game_name = "其他"
             if isinstance(message, str) and message.startswith("[") and "]" in message:
                 game_name = message[1:message.index("]")]
-            logging.info("[签到结果][%s][账号ID=%s][账号=%s] %s",
+            logging.info("[签到结果][%s][账号ID=%s][账号UUID=%s][账号=%s] %s",
                          game_name, account.get("platformUserId", ""),
-                         account.get("name", ""), message)
+                         account.get("account_id", ""), account.get("name", ""), message)
         if not success:
             raise RuntimeError("森空岛签到执行返回失败")
         return True, "\n".join(messages or [])
