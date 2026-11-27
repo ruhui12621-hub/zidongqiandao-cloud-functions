@@ -126,7 +126,9 @@ class RequestGuardTests(unittest.TestCase):
         result = self.module.run_task()
         self.assertIn("永久标记作废", result)
 
-    def test_expiry_stops_other_enabled_games_in_same_invocation(self):
+    def test_expiry_stops_other_enabled_games_and_preserves_all_tombstones(self):
+        old_fingerprint = "a" * 64
+        os.environ[self.module.COOKIE_INVALID_ENV] = old_fingerprint
         session = FakeSession([FakeResponse({"retcode": -100, "message": "login expired"})])
         self.module.get_new_session = lambda: session
         result = self.module.run_task()
@@ -134,7 +136,8 @@ class RequestGuardTests(unittest.TestCase):
         self.assertEqual(len(session.calls), 1)
         self.assertEqual(self.config.config["games"]["os"]["cookie"], "CookieError")
         self.assertFalse(self.config.config["games"]["os"]["enable"])
-        self.assertEqual(os.environ[self.module.COOKIE_INVALID_ENV], self.module.cookie_fingerprint("uid=123; token=abc"))
+        stored = set(os.environ[self.module.COOKIE_INVALID_ENV].split(","))
+        self.assertEqual(stored, {old_fingerprint, self.module.cookie_fingerprint("uid=123; token=abc")})
 
 
 if __name__ == "__main__":
