@@ -18,6 +18,11 @@ class CookieGuardTests(unittest.TestCase):
         self.assertEqual(len(value), 64)
         self.assertNotIn("secret", value)
 
+    def test_hoyolab_cookie_fingerprint_ignores_order_and_spacing(self):
+        first = guard.fingerprint("ltuid=123; ltoken=abc; mid=xyz", "hoyolab")
+        second = guard.fingerprint(" mid=xyz ;ltoken=abc;ltuid=123 ", "hoyolab")
+        self.assertEqual(first, second)
+
     def test_latest_invalid_report_blocks_and_emits_timestamped_renewal(self):
         previous = {"status": "INVALID", "timestamp": "2026-11-27T10:00:00Z"}
         output = io.StringIO()
