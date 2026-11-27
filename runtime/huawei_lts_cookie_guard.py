@@ -10,8 +10,20 @@ WINDOW = timedelta(hours=48)
 REPORT_PREFIX = "[COOKIE_STATUS_JSON]="
 
 
-def fingerprint(credential):
-    return hashlib.sha256(str(credential or "").strip().encode("utf-8")).hexdigest()
+def fingerprint(credential, platform=None):
+    value = str(credential or "").strip()
+    if platform == "hoyolab":
+        fields = []
+        for segment in value.split(";"):
+            segment = segment.strip()
+            if "=" not in segment:
+                continue
+            key, field_value = segment.split("=", 1)
+            key = key.strip()
+            if key:
+                fields.append((key, field_value.strip()))
+        value = ";".join("%s=%s" % pair for pair in sorted(fields)) or value
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _user_data(context, key):
@@ -36,7 +48,7 @@ def report(platform, account_id, credential, status, reason=""):
         "account_id": str(account_id),
         "status": str(status).upper(),
         "timestamp": _stamp(),
-        "sha256": fingerprint(credential),
+        "sha256": fingerprint(credential, platform),
         "reason": str(reason)[:240],
     }
     print(REPORT_PREFIX + json.dumps(record, ensure_ascii=False, separators=(",", ":")), flush=True)
@@ -82,7 +94,7 @@ def _query_recent_report(context, platform, account_id, credential):
     body = {
         "start_time": str(start_ms),
         "end_time": str(end_ms),
-        "keywords": fingerprint(credential),
+        "keywords": fingerprint(credential, platform),
         "limit": 200,
         "is_desc": True,
         "search_type": "init",
@@ -108,7 +120,7 @@ def _query_recent_report(context, platform, account_id, credential):
             continue
         if (item.get("platform") != platform or
                 str(item.get("account_id")) != str(account_id) or
-                item.get("sha256") != fingerprint(credential) or
+                item.get("sha256") != fingerprint(credential, platform) or
                 str(item.get("status", "")).upper() not in ("VALID", "INVALID")):
             continue
         try:
