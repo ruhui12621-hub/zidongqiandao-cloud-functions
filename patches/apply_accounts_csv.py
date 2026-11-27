@@ -32,6 +32,7 @@ def patch_hoyolab():
             continue
         if line.startswith("[账号上下文]"):
             account_context = line.replace("[账号上下文]", "").strip()
+            current_game = "其他"
             continue
         if line.startswith("[账号执行结束]"):
             continue
