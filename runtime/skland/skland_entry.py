@@ -41,14 +41,16 @@ def _read_csv_accounts():
                 raise ValueError("森空岛 accounts.csv 第 %d 行平台错误" % line)
             if not row["account_id"] or row["account_id"] in ids:
                 raise ValueError("森空岛 accounts.csv 第 %d 行账号 ID 为空或重复" % line)
-            if not token or any(ch.isspace() for ch in token):
-                raise ValueError("森空岛 accounts.csv 第 %d 行 Token 无效" % line)
+            active = _enabled(row["enabled"])
+            if (active and not token) or any(ch.isspace() for ch in token):
+                raise ValueError("森空岛 accounts.csv 第 %d 行启用账号 Token 无效" % line)
             if not games or not set(games).issubset(SUPPORTED_GAMES):
                 raise ValueError("森空岛 accounts.csv 第 %d 行游戏列表无效" % line)
-            if token in tokens:
+            if token and token in tokens:
                 raise ValueError("森空岛 accounts.csv 存在重复 Token")
             ids.add(row["account_id"])
-            tokens.add(token)
+            if token:
+                tokens.add(token)
             accounts.append({
                 "account_id": row["account_id"],
                 "platformUserId": row["user_id"] or _stable_id(token),
