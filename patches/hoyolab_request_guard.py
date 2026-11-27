@@ -32,7 +32,7 @@ from request import get_new_session
 from loghelper import log
 
 RET_CODE_ALREADY_SIGNED_IN = -5003
-COOKIE_INVALID_ENV = "HOYOLAB_OS_COOKIE_INVALID_SHA256"
+COOKIE_INVALID_ENV = "HOYOLAB_OS_COOKIE_INVALID_SHA256S"
 
 class HoyoCookieExpired(Exception):
     pass
@@ -146,8 +146,12 @@ def _invalidate_cookie(cookie: str, reason: str) -> str:
     os_config["cookie"] = "CookieError"
     os_config["enable"] = False
     # Also block a warm FunctionGraph worker immediately; user_data persists across cold starts.
-    os.environ[COOKIE_INVALID_ENV] = fingerprint
-    config.hoyolab_os_cookie_invalid_sha256 = fingerprint
+    existing = str(getattr(config, "hoyolab_os_cookie_invalid_sha256", "") or os.getenv(COOKIE_INVALID_ENV, "") or os.getenv("HOYOLAB_OS_COOKIE_INVALID_SHA256", ""))
+    invalid_fingerprints = {item.strip().lower() for item in existing.split(",") if item.strip()}
+    invalid_fingerprints.add(fingerprint)
+    invalid_value = ",".join(sorted(invalid_fingerprints))
+    os.environ[COOKIE_INVALID_ENV] = invalid_value
+    config.hoyolab_os_cookie_invalid_sha256 = invalid_value
     message = f"[COOKIE_INVALID][sha256={fingerprint}] HoYoLAB Cookie 已确认失效：{reason}"
     log.error(message)
     print(message, flush=True)
@@ -160,8 +164,9 @@ def run_task():
         log.warning("国际服 Cookie 为空或已作废；未发送请求")
         return "国际服 Cookie 不可用，已跳过"
     fingerprint = cookie_fingerprint(cookie)
-    blocked = str(getattr(config, "hoyolab_os_cookie_invalid_sha256", "") or os.getenv(COOKIE_INVALID_ENV, "")).strip().lower()
-    if blocked and blocked == fingerprint:
+    blocked_raw = str(getattr(config, "hoyolab_os_cookie_invalid_sha256", "") or os.getenv(COOKIE_INVALID_ENV, "") or os.getenv("HOYOLAB_OS_COOKIE_INVALID_SHA256", ""))
+    blocked = {item.strip().lower() for item in blocked_raw.split(",") if item.strip()}
+    if fingerprint in blocked:
         games["cookie"] = "CookieError"
         games["enable"] = False
         log.error(f"[COOKIE_INVALID_BLOCKED][sha256={fingerprint}] Cookie 已永久标记作废；未发送请求")
@@ -260,7 +265,7 @@ replace_function(ROOT / "index.py", "main_handler", r'''def main_handler(event: 
     # Timer/event FunctionGraph handlers read user_data through Context.getUserData.
     try:
         getter = getattr(context, "getUserData", None)
-        config.hoyolab_os_cookie_invalid_sha256 = getter("HOYOLAB_OS_COOKIE_INVALID_SHA256") if callable(getter) else ""
+        config.hoyolab_os_cookie_invalid_sha256 = (getter("HOYOLAB_OS_COOKIE_INVALID_SHA256S") or getter("HOYOLAB_OS_COOKIE_INVALID_SHA256") or "") if callable(getter) else ""
     except Exception:
         config.hoyolab_os_cookie_invalid_sha256 = ""
     try:
