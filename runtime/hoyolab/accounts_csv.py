@@ -37,20 +37,22 @@ def load_accounts():
                 raise ValueError("accounts.csv 第 %d 行平台不属于 HoYoLAB 函数" % line)
             if not row["account_id"] or row["account_id"] in ids:
                 raise ValueError("accounts.csv 第 %d 行账号 ID 为空或重复" % line)
-            if not row["credential"] or "\n" in row["credential"] or "\r" in row["credential"]:
-                raise ValueError("accounts.csv 第 %d 行凭据为空或包含换行" % line)
-            if platform == "miyoushe_cn" and not all(row[k] for k in ("stuid", "stoken", "mid")):
-                raise ValueError("accounts.csv 第 %d 行国服账号缺少 stuid/stoken/mid" % line)
+            active = _enabled(row["enabled"])
+            if (active and not row["credential"]) or "\n" in row["credential"] or "\r" in row["credential"]:
+                raise ValueError("accounts.csv 第 %d 行启用账号凭据为空或包含换行" % line)
+            if active and platform == "miyoushe_cn" and not all(row[k] for k in ("stuid", "stoken", "mid")):
+                raise ValueError("accounts.csv 第 %d 行启用的国服账号缺少 stuid/stoken/mid" % line)
             games = {part.strip() for part in row["games"].split("|") if part.strip()}
             allowed = CN_GAMES if platform == "miyoushe_cn" else OS_GAMES
             if not games or not games.issubset(allowed):
                 raise ValueError("accounts.csv 第 %d 行游戏列表无效" % line)
-            if row["credential"] in credentials:
+            if row["credential"] and row["credential"] in credentials:
                 raise ValueError("accounts.csv 存在重复凭据；拒绝重复执行同一账号")
             ids.add(row["account_id"])
-            credentials.add(row["credential"])
+            if row["credential"]:
+                credentials.add(row["credential"])
             row["games_set"] = games
-            row["active"] = _enabled(row["enabled"])
+            row["active"] = active
             rows.append(row)
             if len(rows) > 100:
                 raise ValueError("HoYoLAB accounts.csv 超过 100 个账号")
@@ -62,8 +64,11 @@ def _make_config(base, row):
     data["enable"] = True
     data.setdefault("account", {}).update({"cookie": "", "stuid": "", "stoken": "", "mid": ""})
     data.setdefault("games", {})
-    data.setdefault("mihoyobbs", {})["enable"] = False
-    data.setdefault("web_activity", {})["enable"] = False
+    data.setdefault("mihoyobbs", {})
+    data.setdefault("web_activity", {})
+    if row["platform"] != "miyoushe_cn":
+        data["mihoyobbs"]["enable"] = False
+        data["web_activity"]["enable"] = False
     for region in ("cn", "os"):
         data["games"].setdefault(region, {})
         data.setdefault("cloud_games", {}).setdefault(region, {})["enable"] = False
