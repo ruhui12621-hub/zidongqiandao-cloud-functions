@@ -173,7 +173,7 @@ jobs:
           from skland_entry import handler as run_skland
 
           def handler(event, context):
-              run_skland()
+              run_skland(context=context)
               return {"statusCode": 200, "body": "Skland task finished"}
           PY
           printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
@@ -224,7 +224,7 @@ jobs:
           printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/hoyolab/config/accounts.csv
           printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
           rm -f dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt dist/skland/TOKEN.txt
-          python -m py_compile dist/hoyolab/accounts_csv.py dist/hoyolab/index.py dist/skland/skland_entry.py
+          python -m py_compile dist/hoyolab/accounts_csv.py dist/hoyolab/index.py dist/hoyolab/huawei_lts_cookie_guard.py dist/skland/skland_entry.py dist/skland/huawei_lts_cookie_guard.py
           (cd dist/hoyolab && zip -9 -qr "$GITHUB_WORKSPACE/hoyolab.zip" .)
           (cd dist/skland && zip -9 -qr "$GITHUB_WORKSPACE/skland.zip" .)
 
