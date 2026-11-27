@@ -37,6 +37,7 @@ jobs:
         run: |
           python patches/hoyolab_request_guard.py work/hoyolab
           HOYOLAB_TEST_PACKAGE="$PWD/work/hoyolab" PYTHONPATH="$PWD/work/hoyolab" python patches/test_hoyolab_request_guard.py
+          PYTHONPATH="$PWD" python patches/test_huawei_lts_cookie_guard.py
           python -m compileall -q work/hoyolab
 
       - name: Include per-game check-in results in HoYoLAB LTS logs
