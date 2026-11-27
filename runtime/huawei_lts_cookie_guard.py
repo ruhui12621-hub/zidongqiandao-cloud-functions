@@ -73,13 +73,12 @@ def _query_recent_invalid(context, platform, account_id, credential):
     now = _utc_now()
     start_ms = int((now - WINDOW).timestamp() * 1000)
     end_ms = int(now.timestamp() * 1000)
-    url = ("https://lts." + region + ".myhuaweicloud.com/v2/" +
-           _user_data(context, "HUAWEI_CLOUD_PROJECT_ID") +
-           "/groups/" + group_id + "/streams/" + stream_id + "/content/query")
     project_id = _user_data(context, "HUAWEI_CLOUD_PROJECT_ID")
     if not project_id:
-        # FunctionGraph project ID is supplied separately by the APK in user_data.
         raise RuntimeError("缺少 HUAWEI_CLOUD_PROJECT_ID")
+    url = ("https://lts." + region + ".myhuaweicloud.com/v2/" +
+           project_id + "/groups/" + group_id + "/streams/" +
+           stream_id + "/content/query")
     body = {
         "start_time": str(start_ms),
         "end_time": str(end_ms),
