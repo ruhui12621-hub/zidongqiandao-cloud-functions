@@ -59,10 +59,6 @@ def patch_hoyolab():
         (REPO / "runtime" / "hoyolab" / "accounts_csv.py").read_text(encoding="utf-8"),
         encoding="utf-8"
     )
-    (HOYO / "huawei_lts_cookie_guard.py").write_text(
-        (REPO / "runtime" / "huawei_lts_cookie_guard.py").read_text(encoding="utf-8"),
-        encoding="utf-8"
-    )
 
 
 def patch_skland():
@@ -75,10 +71,6 @@ def patch_skland():
     skyland_file.write_text(skyland_source, encoding="utf-8")
     (SKLAND / "skland_entry.py").write_text(
         (REPO / "runtime" / "skland" / "skland_entry.py").read_text(encoding="utf-8"),
-        encoding="utf-8"
-    )
-    (SKLAND / "huawei_lts_cookie_guard.py").write_text(
-        (REPO / "runtime" / "huawei_lts_cookie_guard.py").read_text(encoding="utf-8"),
         encoding="utf-8"
     )
 
