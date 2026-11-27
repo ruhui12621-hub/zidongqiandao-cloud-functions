@@ -58,6 +58,13 @@ def patch_hoyolab():
 
 
 def patch_skland():
+    skyland_file = SKLAND / "skyland.py"
+    skyland_source = skyland_file.read_text(encoding="utf-8")
+    skyland_source = skyland_source.replace(
+        "            os.remove(token_save_name)",
+        "            # Per-account credentials live in accounts.csv; never delete shared token storage."
+    )
+    skyland_file.write_text(skyland_source, encoding="utf-8")
     (SKLAND / "skland_entry.py").write_text(
         (REPO / "runtime" / "skland" / "skland_entry.py").read_text(encoding="utf-8"),
         encoding="utf-8"
