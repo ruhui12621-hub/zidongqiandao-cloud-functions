@@ -72,8 +72,8 @@ def _response_json(response, endpoint: str, allow_already_signed: bool = False) 
         retcode = int(payload["retcode"])
     except (TypeError, ValueError):
         raise HoyoApiError(f"{endpoint} retcode 无效")
-    if retcode == -100:
-        raise HoyoCookieExpired(f"{endpoint} retcode=-100")
+    if retcode in (-100, 10001):
+        raise HoyoCookieExpired(f"{endpoint} retcode={retcode}，接口要求重新登录")
     if allow_already_signed and retcode == RET_CODE_ALREADY_SIGNED_IN:
         return payload
     if retcode != 0:
@@ -234,7 +234,7 @@ replace_function(ROOT / "account.py", "get_account_list", r'''def get_account_li
     data = http.get(setting.account_Info_url, params={"game_biz": game_id}, headers=headers).json()
     if not isinstance(data, dict):
         raise CookieError("BBS 账号列表响应格式异常")
-    if data.get("retcode") == -100:
+    if data.get("retcode") in (-100, 10001):
         if update:
             config.config["account"]["cookie"] = "CookieError"
             raise CookieError("BBS Cookie 在一次刷新后仍然失效")
@@ -273,7 +273,7 @@ replace_function(ROOT / "gamecheckin.py", "get_checkin_rewards", r'''def get_che
         if req.status_code == 429:
             raise RuntimeError("签到奖励查询触发 HTTP 429，停止且不重试")
         data = req.json()
-        if data.get("retcode") == -100:
+        if data.get("retcode") in (-100, 10001):
             config.config["account"]["cookie"] = "CookieError"
             raise CookieError("BBS Cookie 已失效")
         if data.get("retcode") != 0:
@@ -284,7 +284,7 @@ replace_function(ROOT / "gamecheckin.py", "is_sign", r'''def is_sign(self, regio
         req = self.http.get(self.is_sign_api, params={"act_id": self.act_id, "region": region, "uid": uid},
                             headers=self.headers)
         data = {"retcode": -100} if req.status_code == 401 else req.json()
-        if data.get("retcode") == -100:
+        if data.get("retcode") in (-100, 10001):
             if not update and login.update_cookie_token():
                 self.set_headers()
                 return self.is_sign(region, uid, True)
