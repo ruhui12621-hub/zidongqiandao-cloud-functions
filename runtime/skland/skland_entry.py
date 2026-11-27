@@ -7,7 +7,7 @@ import skyland
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 csv_config_path = os.path.join(ROOT, "code", "accounts.csv")
-FIELDS = ("account_id", "platform", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
+FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
 SUPPORTED_GAMES = {"arknights", "endfield"}
 logging.getLogger().setLevel(logging.INFO)
 
@@ -34,8 +34,8 @@ def _read_csv_accounts():
                 continue
             token = row["credential"]
             games = sorted({part.strip() for part in row["games"].split("|") if part.strip()})
-            if row["platform"] != "skland":
-                raise ValueError("森空岛 accounts.csv 第 %d 行平台错误" % line)
+            if row["platform"] != "skland" or row["server"]:
+                raise ValueError("森空岛 accounts.csv 第 %d 行平台或 server 字段错误" % line)
             if not row["account_id"] or row["account_id"] in ids:
                 raise ValueError("森空岛 accounts.csv 第 %d 行账号 ID 为空或重复" % line)
             active = _enabled(row["enabled"])
