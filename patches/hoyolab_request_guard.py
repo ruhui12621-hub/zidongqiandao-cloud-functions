@@ -250,6 +250,67 @@ replace_function(ROOT / "index.py", "main_handler", r'''def main_handler(event: 
     print("云函数测试支持！")
     return 0''')
 
+# Guard CN/BBS paths too: auth refresh is allowed only once and only for explicit -100.
+replace_function(ROOT / "gamecheckin.py", "get_checkin_rewards", r'''def get_checkin_rewards(self) -> list:
+        log.info("正在获取签到奖励列表...")
+        req = self.http.get(self.rewards_api, params={"act_id": self.act_id}, headers=self.headers)
+        if req.status_code == 401:
+            config.config["account"]["cookie"] = "CookieError"
+            raise CookieError("BBS Cookie HTTP 401")
+        if req.status_code == 429:
+            raise RuntimeError("签到奖励查询触发 HTTP 429，停止且不重试")
+        data = req.json()
+        if data.get("retcode") == -100:
+            config.config["account"]["cookie"] = "CookieError"
+            raise CookieError("BBS Cookie 已失效")
+        if data.get("retcode") != 0:
+            raise RuntimeError(f"签到奖励查询失败（retcode={data.get('retcode')}），不重试")
+        return data["data"]["awards"]''')
+
+replace_function(ROOT / "gamecheckin.py", "is_sign", r'''def is_sign(self, region: str, uid: str, update: bool = False) -> dict:
+        req = self.http.get(self.is_sign_api, params={"act_id": self.act_id, "region": region, "uid": uid},
+                            headers=self.headers)
+        data = {"retcode": -100} if req.status_code == 401 else req.json()
+        if data.get("retcode") == -100:
+            if not update and login.update_cookie_token():
+                self.set_headers()
+                return self.is_sign(region, uid, True)
+            config.config["account"]["cookie"] = "CookieError"
+            raise CookieError("BBS Cookie 在最多一次刷新后仍然失效")
+        if data.get("retcode") != 0:
+            raise RuntimeError(f"签到状态查询失败（retcode={data.get('retcode')}），不尝试刷新登录")
+        return data["data"]''')
+
+# A 429 must not be retried as if it were a CAPTCHA challenge.
+game_path = ROOT / "gamecheckin.py"
+game_source = game_path.read_text(encoding="utf-8")
+game_source = game_source.replace(
+    "            if result.status_code == 429:\n                time.sleep(10)  # 429同ip请求次数过多，尝试sleep10s进行解决\n                log.warning('429 Too Many Requests，即将进入下一次请求')\n                continue",
+    "            if result.status_code == 429:\n                log.warning('429 Too Many Requests，停止本次签到请求，不自动重试')\n                break",
+    1,
+)
+game_path.write_text(game_source, encoding="utf-8")
+
+# The BBS task-list path refreshes only on explicit auth rejection, never on arbitrary error text.
+bbs_path = ROOT / "mihoyobbs.py"
+bbs_source = bbs_path.read_text(encoding="utf-8")
+old = '        data = req.json()\n        if "err" in data["message"] or data["retcode"] == -100:\n'
+new = '        data = req.json()\n        if data.get("retcode") not in (0, -100):\n            raise RuntimeError("米游社任务列表失败（retcode={}），不刷新登录凭据".format(data.get("retcode")))\n        if data.get("retcode") == -100:\n'
+if old not in bbs_source:
+    raise SystemExit("BBS task-list auth condition not found")
+bbs_source = bbs_source.replace(old, new, 1)
+bbs_source = bbs_source.replace(
+    "                config.clear_cookie()\n                raise StokenError('Cookie expires')",
+    '                config.config["account"]["cookie"] = "CookieError"\n                raise StokenError("Cookie expires")',
+    1,
+)
+bbs_source = bbs_source.replace(
+    "                    config.clear_stoken()\n                    raise StokenError('Stoken expires')",
+    '                    config.config["account"]["stoken"] = "StokenError"\n                    raise StokenError("Stoken expires")',
+    1,
+)
+bbs_path.write_text(bbs_source, encoding="utf-8")
+
 for name in ("hoyo_checkin.py", "request.py", "main.py", "account.py", "index.py"):
     ast.parse((ROOT / name).read_text(encoding="utf-8"), filename=name)
 assert "HTTPTransport(retries=0)" in (ROOT / "request.py").read_text(encoding="utf-8")
