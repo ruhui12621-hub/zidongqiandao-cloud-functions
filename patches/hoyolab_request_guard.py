@@ -315,6 +315,17 @@ game_source = game_source.replace(
     "            if result.status_code == 429:\n                log.warning('429 Too Many Requests，停止本次签到请求，不自动重试')\n                break",
     1,
 )
+old_sign_response = "            data = result.json()"
+new_sign_response = """            if result.status_code == 401:
+                config.config["account"]["cookie"] = "CookieError"
+                raise CookieError("BBS Cookie 在签到提交时返回 HTTP 401")
+            data = result.json()
+            if data.get("retcode") in (-100, 10001):
+                config.config["account"]["cookie"] = "CookieError"
+                raise CookieError("BBS Cookie 在签到提交时已失效；停止其余账号请求")"""
+if old_sign_response not in game_source:
+    raise SystemExit("CN sign response point not found")
+game_source = game_source.replace(old_sign_response, new_sign_response, 1)
 game_path.write_text(game_source, encoding="utf-8")
 
 # The BBS task-list path refreshes only on explicit auth rejection, never on arbitrary error text.
