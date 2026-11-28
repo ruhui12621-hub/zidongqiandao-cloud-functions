@@ -7,7 +7,8 @@ import skyland
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 csv_config_path = os.path.join(ROOT, "code", "accounts.csv")
-FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
+LEGACY_FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
+FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark", "device_manufacturer", "device_model", "device_code", "android_version", "android_sdk", "device_fingerprint", "app_install_id")
 SUPPORTED_GAMES = {"arknights", "endfield"}
 logging.getLogger().setLevel(logging.INFO)
 
@@ -25,11 +26,16 @@ def _read_csv_accounts():
         raise ValueError("森空岛 accounts.csv 超过 2 MB")
     with open(csv_config_path, "r", encoding="utf-8-sig", newline="") as source:
         reader = csv.DictReader(source)
-        if tuple(reader.fieldnames or ()) != FIELDS:
+        header = tuple(reader.fieldnames or ())
+        if header not in (LEGACY_FIELDS, FIELDS):
             raise ValueError("森空岛 accounts.csv 表头不匹配；拒绝执行")
+        legacy_format = header == LEGACY_FIELDS
         accounts, ids, tokens, user_ids = [], set(), set(), set()
         for line, raw in enumerate(reader, start=2):
             row = {key: str(raw.get(key) or "").strip() for key in FIELDS}
+            if legacy_format:
+                for key in FIELDS[len(LEGACY_FIELDS):]:
+                    row[key] = ""
             if not any(row.values()):
                 continue
             token = row["credential"]
