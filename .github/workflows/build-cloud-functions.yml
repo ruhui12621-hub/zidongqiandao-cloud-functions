@@ -235,29 +235,10 @@ jobs:
           unzip -l hoyolab.zip | head -40
           unzip -l skland.zip | head -40
           test -s hoyolab.zip
-          if unzip -Z1 hoyolab.zip | grep -E '(^|/)(main_multi\\.py|config\\.yaml|config\\.yaml\\.example)          test -s skland.zip
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cloud-function-packages
-          path: |
-            hoyolab.zip
-            skland.zip
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Publish versioned release assets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: cloud-functions-${{ github.run_number }}-${{ github.sha }}
-          name: Cloud functions build ${{ github.run_number }}
-          generate_release_notes: true
-          files: |
-            hoyolab.zip
-            skland.zip
-; then echo 'Legacy HoYoLAB YAML files detected in package'; exit 1; fi
+          if unzip -Z1 hoyolab.zip | grep -E '(^|/)(main_multi\.py|config\.yaml|config\.yaml\.example)$'; then
+            echo 'Legacy HoYoLAB YAML files detected in package'
+            exit 1
+          fi
           test -s skland.zip
 
       - name: Upload build artifacts
