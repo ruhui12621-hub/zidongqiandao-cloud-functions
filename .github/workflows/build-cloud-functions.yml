@@ -31,6 +31,7 @@ jobs:
         run: |
           mkdir -p work
           unzip -q source-bundle.zip -d work
+          rm -f work/hoyolab/main_multi.py work/hoyolab/config/config.yaml.example work/hoyolab/config/config.yaml
 
       - name: Harden HoYoLAB Cookie handling and request volume
         if: steps.source.outputs.present == 'true'
@@ -112,7 +113,6 @@ jobs:
           python -m pip install -r work/hoyolab/requirements.txt -t dist/hoyolab/package
           cp work/hoyolab/*.py dist/hoyolab/package/
           cp work/hoyolab/config/*.example dist/hoyolab/package/config/
-          cp work/hoyolab/config/config.yaml.example dist/hoyolab/package/config/config.yaml
           cd dist/hoyolab/package
           zip -qr ../../../hoyolab.zip .
 
@@ -225,6 +225,8 @@ jobs:
           printf 'account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark\r\n' > dist/skland/code/accounts.csv
           rm -f dist/skland/code/INPUT_HYPERGRYPH_ACCOUNTS.json dist/skland/code/INPUT_HYPERGRYPH_TOKEN.txt dist/skland/TOKEN.txt
           python -m py_compile dist/hoyolab/accounts_csv.py dist/hoyolab/index.py dist/skland/skland_entry.py
+          if grep -R -n -E 'import yaml|yaml\\.(load|dump)|config\\.yaml|main_multi' dist/hoyolab --include='*.py'; then echo 'Legacy HoYoLAB YAML code detected'; exit 1; fi
+          if find dist/hoyolab -type f -iname '*config*.yaml' | grep -q .; then echo 'Legacy HoYoLAB YAML config file detected'; exit 1; fi
           (cd dist/hoyolab && zip -9 -qr "$GITHUB_WORKSPACE/hoyolab.zip" .)
           (cd dist/skland && zip -9 -qr "$GITHUB_WORKSPACE/skland.zip" .)
 
@@ -233,6 +235,29 @@ jobs:
           unzip -l hoyolab.zip | head -40
           unzip -l skland.zip | head -40
           test -s hoyolab.zip
+          if unzip -Z1 hoyolab.zip | grep -E '(^|/)(main_multi\\.py|config\\.yaml|config\\.yaml\\.example)          test -s skland.zip
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-function-packages
+          path: |
+            hoyolab.zip
+            skland.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish versioned release assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cloud-functions-${{ github.run_number }}-${{ github.sha }}
+          name: Cloud functions build ${{ github.run_number }}
+          generate_release_notes: true
+          files: |
+            hoyolab.zip
+            skland.zip
+; then echo 'Legacy HoYoLAB YAML files detected in package'; exit 1; fi
           test -s skland.zip
 
       - name: Upload build artifacts
