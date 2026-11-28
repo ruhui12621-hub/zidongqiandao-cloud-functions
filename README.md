@@ -18,7 +18,7 @@ The HoYoLAB and Skland FunctionGraph packages use exactly one `accounts.csv` fil
 The shared header is:
 
 ```csv
-account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark
+account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark,device_manufacturer,device_model,device_code,android_version,android_sdk,device_fingerprint,app_install_id
 ```
 
 - HoYoLAB package path: `config/accounts.csv`; `platform` must be `hoyolab`, and `server` must be `cn` or `os`.
@@ -26,6 +26,7 @@ account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enable
 - `credential` contains the Cookie for HoYoLAB or Token for Skland.
 - `games` contains supported game keys separated by `|`.
 - `enabled` is `true` or `false`.
+- Device metadata columns are optional for legacy CSV files and are populated by the APK after a successful in-app login. They record the actual Android build information and an app-install-scoped random ID; they are not used to construct or spoof sign-in request headers.
 - CSV parsing supports quoted fields; rows are never split using a simple comma operation.
 - **CSV is the only account source.** Missing files, invalid headers and malformed rows fail closed. Neither function reads YAML, JSON, per-account temporary files, or legacy account configuration.
 - Each enabled row is processed independently. A failure for one account does not prevent later accounts from running.
