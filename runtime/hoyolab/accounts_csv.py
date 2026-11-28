@@ -1,8 +1,6 @@
 import copy
 import csv
 import os
-import tempfile
-import yaml
 
 import config
 import main
@@ -19,40 +17,47 @@ def _enabled(value):
 
 
 def load_accounts():
+    """Read the only supported HoYoLAB account source: config/accounts.csv."""
     if not os.path.isfile(CSV_PATH):
-        return None
+        raise FileNotFoundError("缺少必需的 config/accounts.csv；HoYoLAB 函数只支持 CSV")
     if os.path.getsize(CSV_PATH) > 2 * 1024 * 1024:
         raise ValueError("HoYoLAB accounts.csv 超过 2 MB，已停止执行")
+
     with open(CSV_PATH, "r", encoding="utf-8-sig", newline="") as source:
         reader = csv.DictReader(source)
         if tuple(reader.fieldnames or ()) != FIELDS:
             raise ValueError("HoYoLAB accounts.csv 表头不匹配；拒绝执行")
         rows, ids, credentials, user_ids = [], set(), set(), set()
         for line, raw in enumerate(reader, start=2):
+            if None in raw:
+                raise ValueError("accounts.csv 第 %d 行字段数量错误" % line)
             row = {key: str(raw.get(key) or "").strip() for key in FIELDS}
             if not any(row.values()):
                 continue
-            platform = row["platform"]
-            server = row["server"]
-            if platform != "hoyolab" or server not in ("cn", "os"):
-                raise ValueError("accounts.csv 第 %d 行必须属于 HoYoLAB 平台且 server 为 cn/os" % line)
+            if row["platform"] != "hoyolab" or row["server"] not in ("cn", "os"):
+                raise ValueError("accounts.csv 第 %d 行必须属于 HoYoLAB 且 server 为 cn/os" % line)
             if not row["account_id"] or row["account_id"] in ids:
                 raise ValueError("accounts.csv 第 %d 行账号 ID 为空或重复" % line)
+
             active = _enabled(row["enabled"])
-            if (active and not row["credential"]) or "\n" in row["credential"] or "\r" in row["credential"]:
-                raise ValueError("accounts.csv 第 %d 行启用账号凭据为空或包含换行" % line)
-            if active and server == "cn" and not all(row[k] for k in ("stuid", "stoken", "mid")):
-                raise ValueError("accounts.csv 第 %d 行启用的国服账号缺少 stuid/stoken/mid" % line)
+            if active and not row["credential"]:
+                raise ValueError("accounts.csv 第 %d 行启用账号缺少 credential" % line)
+            if any(ch in row["credential"] for ch in ("\n", "\r")):
+                raise ValueError("accounts.csv 第 %d 行 credential 包含非法换行" % line)
+            if active and row["server"] == "cn" and not all(row[key] for key in ("stuid", "stoken", "mid")):
+                raise ValueError("accounts.csv 第 %d 行国服账号缺少 stuid/stoken/mid" % line)
+
             games = {part.strip() for part in row["games"].split("|") if part.strip()}
-            allowed = CN_GAMES if server == "cn" else OS_GAMES
+            allowed = CN_GAMES if row["server"] == "cn" else OS_GAMES
             if not games.issubset(allowed):
                 raise ValueError("accounts.csv 第 %d 行游戏列表无效" % line)
             if row["credential"] and row["credential"] in credentials:
-                raise ValueError("accounts.csv 存在重复凭据；拒绝重复执行同一账号")
+                raise ValueError("accounts.csv 存在重复凭据；拒绝重复执行")
             if row["user_id"] and (row["server"], row["user_id"]) in user_ids:
-                raise ValueError("accounts.csv 存在重复 user_id；拒绝重复执行同一账号")
+                raise ValueError("accounts.csv 存在重复 user_id；拒绝重复执行")
             if any("\n" in row[key] or "\r" in row[key] for key in ("account_id", "name", "user_id", "remark")):
                 raise ValueError("accounts.csv 第 %d 行包含非法换行字段" % line)
+
             ids.add(row["account_id"])
             if row["credential"]:
                 credentials.add(row["credential"])
@@ -67,22 +72,27 @@ def load_accounts():
 
 
 def _make_config(base, row):
+    """Build the in-memory task configuration directly from one CSV row."""
     data = copy.deepcopy(base)
     data["enable"] = True
     data.setdefault("account", {}).update({"cookie": "", "stuid": "", "stoken": "", "mid": ""})
     data.setdefault("games", {})
+    data.setdefault("cloud_games", {})
     data.setdefault("mihoyobbs", {})
     data.setdefault("web_activity", {})
-    if row["server"] != "cn":
-        data["mihoyobbs"]["enable"] = False
-        data["web_activity"]["enable"] = False
+
     for region in ("cn", "os"):
-        data["games"].setdefault(region, {})
-        data.setdefault("cloud_games", {}).setdefault(region, {})["enable"] = False
+        data["cloud_games"].setdefault(region, {})["enable"] = False
+        for value in data["cloud_games"][region].values():
+            if isinstance(value, dict) and "enable" in value:
+                value["enable"] = False
+
     if row["server"] == "cn":
         data["account"].update({
-            "cookie": row["credential"], "stuid": row["stuid"],
-            "stoken": row["stoken"], "mid": row["mid"]
+            "cookie": row["credential"],
+            "stuid": row["stuid"],
+            "stoken": row["stoken"],
+            "mid": row["mid"]
         })
         data["games"]["cn"]["enable"] = True
         data["games"]["os"]["enable"] = False
@@ -90,62 +100,60 @@ def _make_config(base, row):
             if isinstance(value, dict) and "checkin" in value:
                 value["checkin"] = key in row["games_set"]
     else:
+        data["account"].update({"cookie": "", "stuid": "", "stoken": "", "mid": ""})
         data["games"]["cn"]["enable"] = False
         data["games"]["os"]["enable"] = True
         data["games"]["os"]["cookie"] = row["credential"]
         for key, value in data["games"]["os"].items():
             if isinstance(value, dict) and "checkin" in value:
                 value["checkin"] = key in row["games_set"]
+        data["mihoyobbs"]["enable"] = False
+        data["web_activity"]["enable"] = False
     return data
 
 
 def run_accounts(context=None):
     rows = load_accounts()
-    if rows is None:
-        raise FileNotFoundError("缺少必需的 config/accounts.csv；本函数仅支持 CSV 账号配置")
     active = [row for row in rows if row["active"]]
     if not active:
         return 0, "accounts.csv 中没有启用的账号，未发送任何请求。"
-    with open(config.config_Path, "r", encoding="utf-8") as source:
-        base = yaml.load(source, Loader=yaml.FullLoader)
-    original_path = config.config_Path
+
+    base = config.copy_config()
+    original_loader = config.load_config
+    original_serverless = config.serverless
+    original_config = config.config
     results, failures, captcha = [], 0, False
+    config.serverless = True
     try:
         for row in active:
+            account_config = _make_config(base, row)
+
+            def load_current_csv_account(data=account_config):
+                config.config = copy.deepcopy(data)
+                return config.config
+
+            config.load_config = load_current_csv_account
             marker = "[账号上下文][account_id=%s][user_id=%s][name=%s]" % (
                 row["account_id"], row["user_id"], row["name"] or row["account_id"])
             print(marker, flush=True)
-            temp_path = None
             try:
-                with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".yaml", delete=False) as target:
-                    yaml.dump(_make_config(base, row), target, Dumper=yaml.Dumper,
-                              sort_keys=False, allow_unicode=True)
-                    temp_path = target.name
-                config.config_Path = temp_path
                 status, message = main.main()
-                active_config = config.config if isinstance(config.config, dict) else {}
                 if status in (1, 2):
                     failures += 1
                 if status == 3:
                     captcha = True
-                normalized_message = message or "任务执行完成，但没有返回消息"
-                if not any(line.startswith("[签到结果]") for line in normalized_message.splitlines()):
-                    normalized_message = "[签到结果][其他] " + normalized_message
-                results.append((row, status, normalized_message))
+                message = message or "任务执行完成，但没有返回消息"
+                results.append((row, status, message))
             except Exception as exc:
                 failures += 1
                 message = "[签到结果][其他] 签到失败：%s: %s" % (type(exc).__name__, exc)
                 results.append((row, 1, message))
                 print("[账号异常][account_id=%s] %s" % (row["account_id"], message), flush=True)
-            finally:
-                config.config_Path = original_path
-                if temp_path:
-                    try:
-                        os.remove(temp_path)
-                    except OSError:
-                        pass
     finally:
-        config.config_Path = original_path
+        config.load_config = original_loader
+        config.serverless = original_serverless
+        config.config = original_config
+
     output = []
     for row, status, message in results:
         output.extend((
