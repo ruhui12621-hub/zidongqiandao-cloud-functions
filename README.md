@@ -13,20 +13,20 @@ The repository is currently public. Only sanitized source and blank example conf
 
 ## Platform account CSV format
 
-The HoYoLAB and Skland FunctionGraph packages now accept one `accounts.csv` file per platform function. The APK is responsible for reading, validating and updating these files inside the function ZIP package.
+The HoYoLAB and Skland FunctionGraph packages use exactly one `accounts.csv` file per platform function. The APK is responsible for reading, validating and updating these files inside the function ZIP package.
 
 The shared header is:
 
 ```csv
-account_id,platform,name,user_id,credential,stuid,stoken,mid,games,enabled,remark
+account_id,platform,server,name,user_id,credential,stuid,stoken,mid,games,enabled,remark
 ```
 
-- HoYoLAB package path: `config/accounts.csv`; `platform` is `hoyolab` or `miyoushe_cn`.
-- Skland package path: `code/accounts.csv`; `platform` is `skland`.
+- HoYoLAB package path: `config/accounts.csv`; `platform` must be `hoyolab`, and `server` must be `cn` or `os`.
+- Skland package path: `code/accounts.csv`; `platform` must be `skland`, and `server` is empty.
 - `credential` contains the Cookie for HoYoLAB or Token for Skland.
-- `games` contains game keys separated by `|`.
+- `games` contains supported game keys separated by `|`.
 - `enabled` is `true` or `false`.
-- The CSV is parsed with quoted-field support. Do not split rows or fields using a simple comma split.
-- If the CSV file is absent, the function keeps its legacy configuration reader for migration. Once the CSV exists, it is authoritative; an empty or invalid CSV fails closed instead of silently falling back to old credentials.
-- The function processes enabled rows independently. A single account failure does not prevent later accounts from running.
-- Never publish account CSV files or include their credential values in logs.
+- CSV parsing supports quoted fields; rows are never split using a simple comma operation.
+- **CSV is the only account source.** Missing files, invalid headers and malformed rows fail closed. Neither function reads YAML, JSON, per-account temporary files, or legacy account configuration.
+- Each enabled row is processed independently. A failure for one account does not prevent later accounts from running.
+- Credentials must never be committed to this repository or written to logs. Only account identifiers and display names may appear in execution context logs.
