@@ -7,7 +7,8 @@ import main
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(ROOT, "config", "accounts.csv")
-FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
+LEGACY_FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark")
+FIELDS = ("account_id", "platform", "server", "name", "user_id", "credential", "stuid", "stoken", "mid", "games", "enabled", "remark", "device_manufacturer", "device_model", "device_code", "android_version", "android_sdk", "device_fingerprint", "app_install_id")
 CN_GAMES = {"genshin", "honkai2", "honkai3rd", "tears_of_themis", "honkai_sr", "zzz"}
 OS_GAMES = {"genshin", "honkai3rd", "tears_of_themis", "honkai_sr", "zzz"}
 
@@ -25,13 +26,18 @@ def load_accounts():
 
     with open(CSV_PATH, "r", encoding="utf-8-sig", newline="") as source:
         reader = csv.DictReader(source)
-        if tuple(reader.fieldnames or ()) != FIELDS:
+        header = tuple(reader.fieldnames or ())
+        if header not in (LEGACY_FIELDS, FIELDS):
             raise ValueError("HoYoLAB accounts.csv 表头不匹配；拒绝执行")
+        legacy_format = header == LEGACY_FIELDS
         rows, ids, credentials, user_ids = [], set(), set(), set()
         for line, raw in enumerate(reader, start=2):
             if None in raw:
                 raise ValueError("accounts.csv 第 %d 行字段数量错误" % line)
             row = {key: str(raw.get(key) or "").strip() for key in FIELDS}
+            if legacy_format:
+                for key in FIELDS[len(LEGACY_FIELDS):]:
+                    row[key] = ""
             if not any(row.values()):
                 continue
             if row["platform"] != "hoyolab" or row["server"] not in ("cn", "os"):
